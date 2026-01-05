@@ -3,6 +3,7 @@ import numpy as np
 import xml.etree.ElementTree as ET
 import re, io, requests, streamlit as st
 
+# TABELA DE ALÍQUOTAS INTERNAS PADRÃO
 ALIQUOTAS_UF = {
     'AC': 19.0, 'AL': 19.0, 'AM': 20.0, 'AP': 18.0, 'BA': 20.5, 'CE': 20.0,
     'DF': 20.0, 'ES': 17.0, 'GO': 19.0, 'MA': 22.0, 'MG': 18.0, 'MS': 17.0,
@@ -95,10 +96,10 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        pd.DataFrame([["SENTINELA - AUDITORIA TOTAL"]]).to_excel(writer, sheet_name='MANUAL', index=False, header=False)
+        pd.DataFrame([["AUDITORIA FISCAL SENTINELA"]]).to_excel(writer, sheet_name='MANUAL', index=False, header=False)
         
-        # 👣 LEITURA E ESCRITA DOS DADOS GERENCIAIS E AUTENTICIDADE
-        for f_obj, s_name in [(ge, 'GERENCIAL_ENTRADA'), (gs, 'GERENCIAL_SAIDA'), (ae, 'AUTENTICIDADE_ENTRADA'), (as_f, 'AUTENTICIDADE_SAIDA')]:
+        # 👣 ABAS GERENCIAIS (CONFORME SOLICITADO)
+        for f_obj, s_name in [(ge, 'GERENCIAL_ENTRADA'), (gs, 'GERENCIAL_SAIDA')]:
             if f_obj:
                 try:
                     f_obj.seek(0)
@@ -106,25 +107,48 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
                     df_csv.to_excel(writer, sheet_name=s_name, index=False)
                 except: pass
 
+        # 👣 CRUZAMENTO DE AUTENTICIDADE (SITUAÇÃO DA NOTA)
+        def cruzar_status(df, f):
+            if df.empty or f is None: 
+                df['Situação Nota'] = '⚠️ Autenticidade não carregada'
+                return df
+            try:
+                f.seek(0)
+                df_a = pd.read_excel(f, header=None) if f.name.endswith('.xlsx') else pd.read_csv(f, header=None)
+                df_a[0] = df_a[0].astype(str).str.replace('NFe', '').str.strip()
+                status_map = df_a.set_index(0)[5].to_dict()
+                df['Situação Nota'] = df['CHAVE_ACESSO'].map(status_map).fillna('⚠️ N/Encontrada')
+                return df
+            except: 
+                df['Situação Nota'] = '❌ Erro na leitura'
+                return df
+
+        df_xs = cruzar_status(df_xs, as_f)
+
         if not df_xs.empty:
-            # 1. ICMS (4% IMPORTADOS + REGRA GERAL UF)
+            # --- 1. ICMS ---
             df_i = df_xs.copy()
             def audit_icms(r):
                 info = base_icms[base_icms['NCM_KEY'] == r['NCM']] if not base_icms.empty else pd.DataFrame()
+                diag_st = "✅ OK"
+                if r['CST-ICMS'] == '10' and r['VLR-ICMS-ST'] == 0: diag_st = "❌ Alerta: CST 10 sem destaque ST"
                 val_b = safe_float(info['ALIQ (INTERNA)'].iloc[0]) if not info.empty else 0.0
                 if val_b == 0:
                     if r['UF_EMIT'] != r['UF_DEST']:
                         alq_e = 4.0 if str(r['ORIGEM']) in ['1', '2', '3', '8'] else 12.0
                         fonte = "Interestadual (Regra Geral)"
-                    else: alq_e = ALIQUOTAS_UF.get(r['UF_EMIT'], 18.0); fonte = f"Interna {r['UF_EMIT']} (Base Cliente)"
+                    else: alq_e = ALIQUOTAS_UF.get(r['UF_EMIT'], 18.0); fonte = f"Interna {r['UF_EMIT']} (Regra Geral)"
                 else: alq_e = val_b; fonte = "Base Cadastrada"
                 diag = "✅ Alq OK" if abs(r['ALQ-ICMS'] - alq_e) < 0.01 else f"❌ XML {r['ALQ-ICMS']}% vs {alq_e}%"
                 comp = max(0, (alq_e - r['ALQ-ICMS']) * r['BC-ICMS'] / 100)
-                return pd.Series([fonte, diag, f"R$ {comp:,.2f}"])
-            df_i[['Fonte', 'Diagnóstico', 'Complemento']] = df_i.apply(audit_icms, axis=1)
-            df_i.to_excel(writer, sheet_name='ICMS_AUDIT', index=False)
+                return pd.Series([r['Situação Nota'], fonte, diag_st, diag, f"R$ {comp:,.2f}"])
+            
+            df_i[['Situação Nota', 'Fonte', 'Check ST', 'Diagnóstico', 'Complemento']] = df_i.apply(audit_icms, axis=1)
+            # Reorganizar para Situação Nota ser a primeira
+            cols = ['Situação Nota'] + [c for c in df_i.columns if c != 'Situação Nota']
+            df_i[cols].to_excel(writer, sheet_name='ICMS_AUDIT', index=False)
 
-            # 2. PIS/COFINS
+            # --- 2. PIS/COFINS ---
             df_pc = df_xs.copy()
             def audit_pc(r):
                 info = base_pc[base_pc['NCM_KEY'] == r['NCM']] if not base_pc.empty else pd.DataFrame()
@@ -134,7 +158,7 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
             df_pc['Check PIS/COF'] = df_pc.apply(audit_pc, axis=1)
             df_pc.to_excel(writer, sheet_name='PIS_COFINS_AUDIT', index=False)
 
-            # 3. IPI (TIPI PADRÃO)
+            # --- 3. IPI ---
             df_ip = df_xs.copy()
             def audit_ipi(r):
                 info_p = tipi_padrao[tipi_padrao['NCM_KEY'] == r['NCM']] if not tipi_padrao.empty else pd.DataFrame()
@@ -143,16 +167,17 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
             df_ip['Check IPI'] = df_ip.apply(audit_ipi, axis=1)
             df_ip.to_excel(writer, sheet_name='IPI_AUDIT', index=False)
 
-            # 4. DIFAL (CPF/CNPJ + indIEDest)
+            # --- 4. DIFAL ---
             df_dif = df_xs.copy()
             def audit_difal(r):
                 if r['UF_EMIT'] != r['UF_DEST']:
                     v_xml = r['VAL-DIFAL'] + r['VAL-FCP-DEST']
-                    if len(str(r['CPF_DEST'])) > 5 or r['indIEDest'] == '9':
-                        return "✅ DIFAL Localizado" if v_xml > 0 else "⚠️ Alerta: Sem DIFAL"
+                    # CPF preenchido ou indicador de IE 9 (Não Contribuinte)
+                    if (r['CPF_DEST'] and len(str(r['CPF_DEST'])) > 5) or r['indIEDest'] == '9':
+                        return "✅ DIFAL Localizado" if v_xml > 0 else "⚠️ Alerta: Sem DIFAL destacado"
                     return "Contribuinte: Verificar Diferencial"
                 return "Operação Interna"
-            df_dif['Analise_DIFAL'] = df_dif.apply(audit_difal, axis=1)
+            df_dif['Análise DIFAL'] = df_dif.apply(audit_difal, axis=1)
             df_dif.to_excel(writer, sheet_name='DIFAL_AUDIT', index=False)
 
     return output.getvalue()
