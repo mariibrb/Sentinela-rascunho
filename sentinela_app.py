@@ -15,10 +15,6 @@ st.markdown("""
     .stApp { background-color: #F7F7F7; }
     [data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 2px solid #FF6F00; }
     h1, h2, h3 { color: #FF6F00 !important; font-weight: 700; text-align: center; }
-    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:has(img) {
-        display: flex !important; justify-content: center !important; width: 100% !important;
-    }
-    .stButton { display: flex !important; justify-content: center !important; width: 100% !important; margin-top: 20px !important; }
     .stButton > button {
         background-color: #FF6F00 !important; color: white !important; border-radius: 25px !important;
         font-weight: bold !important; width: 300px !important; height: 50px !important; border: none !important;
@@ -27,8 +23,6 @@ st.markdown("""
         background-color: #FFFFFF; padding: 10px 15px; border-radius: 10px; border-left: 5px solid #FF6F00;
         margin: 10px auto 15px auto; max-width: 600px; text-align: center;
     }
-    .passinho { color: #808080 !important; font-size: 1.2rem; margin-right: 10px; }
-    .passo-texto { color: #FF6F00; font-size: 1.1rem; font-weight: 700; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -64,21 +58,21 @@ st.markdown("<div class='passo-container'><span class='passo-texto'>👣 PASSO 1
 cod_cliente = st.selectbox("Empresa:", [""] + listar_empresas_no_repositorio(), label_visibility="collapsed")
 
 if cod_cliente:
-    st.markdown("<div class='passo-container'><span class='passinho'>👣</span><span class='passo-texto'>PASSO 2: Carregar Documentos</span></div>", unsafe_allow_html=True)
+    st.markdown("<div class='passo-container'><span class='passo-texto'>PASSO 2: Carregar Documentos</span></div>", unsafe_allow_html=True)
     c_e, c_s = st.columns(2, gap="large")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_vfinal_clean")
-        ge = st.file_uploader("Gerencial Entrada", type=['csv'], key="ge_vfinal_clean")
-        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_vfinal_clean")
+        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_v111")
+        ge = st.file_uploader("Gerencial Entrada", type=['csv'], key="ge_v111")
+        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_v111")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_vfinal_clean")
-        gs = st.file_uploader("Gerencial Saída", type=['csv'], key="gs_vfinal_clean")
-        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_vfinal_clean")
+        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_v111")
+        gs = st.file_uploader("Gerencial Saída", type=['csv'], key="gs_v111")
+        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_v111")
 
     if st.button("🚀 GERAR RELATÓRIO"):
-        with st.spinner("🧡 Sentinela processando motor total..."):
+        with st.spinner("🧡 Sentinela processando motor..."):
             try:
                 df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
                 relat = gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente)
