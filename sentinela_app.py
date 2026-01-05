@@ -28,9 +28,24 @@ with st.sidebar:
     
     st.markdown("---")
     st.subheader("📥 Gabaritos")
-    g_buf = io.BytesIO()
-    pd.DataFrame(columns=["NCM", "ALIQUOTA_PIS", "ALIQUOTA_COFINS", "CST"]).to_excel(g_buf, index=False)
-    st.download_button("📥 Gabarito PIS/COFINS", g_buf.getvalue(), "gabarito_fiscal.xlsx", use_container_width=True)
+    
+    # Função auxiliar para gerar excel em memória
+    def criar_gabarito(colunas):
+        buf = io.BytesIO()
+        pd.DataFrame(columns=colunas).to_excel(buf, index=False)
+        return buf.getvalue()
+
+    # Gabarito PIS/COFINS
+    st.download_button("📥 Gabarito PIS/COFINS", criar_gabarito(["NCM", "ALIQUOTA_PIS", "ALIQUOTA_COFINS", "CST"]), "gabarito_pis_cofins.xlsx", use_container_width=True)
+
+    # Gabarito ICMS
+    st.download_button("📥 Gabarito ICMS", criar_gabarito(["NCM", "ALIQUOTA_ICMS", "CST_ICMS", "REDUCAO_BC"]), "gabarito_icms.xlsx", use_container_width=True)
+
+    # Gabarito IPI
+    st.download_button("📥 Gabarito IPI", criar_gabarito(["NCM", "ALIQUOTA_IPI", "CST_IPI", "ENQUADRAMENTO"]), "gabarito_ipi.xlsx", use_container_width=True)
+
+    # Gabarito Base Completa
+    st.download_button("📥 Gabarito Base Completa", criar_gabarito(["NCM", "DESCRIÇÃO", "CST_ICMS", "ALIQ_ICMS", "CST_IPI", "ALIQ_IPI", "CST_PIS", "ALIQ_PIS", "CST_COFINS", "ALIQ_COFINS"]), "gabarito_base_completa.xlsx", use_container_width=True)
 
 # --- 4. TELA PRINCIPAL ---
 c1, c2, c3 = st.columns([1, 2, 1])
@@ -47,13 +62,13 @@ col_e, col_s = st.columns(2, gap="large")
 with col_e:
     st.subheader("📥 FLUXO ENTRADAS")
     xe = st.file_uploader("📂 XMLs de Entrada", type='xml', accept_multiple_files=True, key="xe_v3")
-    ge = st.file_uploader("📊 Gerencial Entrada (CSV)", type=['csv'], key="ge_v3") # CAMPO GERENCIAL
+    ge = st.file_uploader("📊 Gerencial Entrada (CSV)", type=['csv'], key="ge_v3")
     ae = st.file_uploader("🔍 Autenticidade Entrada (XLSX)", type=['xlsx'], key="ae_v3")
 
 with col_s:
     st.subheader("📤 FLUXO SAÍDAS")
     xs = st.file_uploader("📂 XMLs de Saída", type='xml', accept_multiple_files=True, key="xs_v3")
-    gs = st.file_uploader("📊 Gerencial Saída (CSV)", type=['csv'], key="gs_v3") # CAMPO GERENCIAL
+    gs = st.file_uploader("📊 Gerencial Saída (CSV)", type=['csv'], key="gs_v3")
     as_f = st.file_uploader("🔍 Autenticidade Saída (XLSX)", type=['xlsx'], key="as_v3")
 
 st.markdown("<br>", unsafe_allow_html=True)
