@@ -5,7 +5,7 @@ from sentinela_core import extrair_dados_xml, gerar_excel_final
 # 1. Configuração da Página
 st.set_page_config(page_title="Sentinela Nascel", page_icon="🧡", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Estilo CSS Nascel (Redução máxima de área branca)
+# 2. Estilo CSS Nascel (Ajustado para não sumir com a logo)
 st.markdown("""
 <style>
     .stApp { background-color: #F7F7F7; }
@@ -14,20 +14,16 @@ st.markdown("""
     .stButton>button { background-color: #FF6F00; color: white; border-radius: 20px; font-weight: bold; width: 100%; height: 50px; border: none; }
     .stFileUploader { border: 1px dashed #FF6F00; border-radius: 10px; }
     
-    /* Ajuste para espremer o topo ao máximo */
+    /* Reduz a área branca sem sumir com a logo */
     .block-container { 
-        padding-top: 0.5rem !important; 
+        padding-top: 2rem !important; 
         padding-bottom: 0rem !important; 
     }
     
-    /* Remove o espaço entre o topo e o widget de imagem */
-    [data-testid="stVerticalBlock"] > div:first-child {
-        margin-top: -20px;
-    }
-
+    /* Ajuste fino na margem da imagem central */
     [data-testid="stImage"] {
         text-align: center;
-        margin-bottom: -20px;
+        margin-top: -20px;
     }
 </style>
 """, unsafe_allow_html=True)
