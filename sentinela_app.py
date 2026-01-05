@@ -64,7 +64,7 @@ with st.sidebar:
             pd.DataFrame(columns=["NCM_TIPI", "EX", "DESCRIÇÃO", "ALÍQUOTA (%)"]).to_excel(writer, sheet_name='IPI', index=False)
             for c, v in enumerate(["NCM_TIPI", "EX", "DESCRIÇÃO", "ALÍQUOTA (%)"]): writer.sheets['IPI'].write(0, c, v, f_header)
         return output.getvalue()
-    st.download_button("📥 Baixar Gabarito Original", criar_gabarito(), "gabarito_sentinela.xlsx", use_container_width=True)
+    st.download_button("📥 Baixar Gabarito", criar_gabarito(), "gabarito_sentinela.xlsx", use_container_width=True)
 
 st.markdown("<div class='passo-container'><span class='passo-texto'>👣 PASSO 1: Selecione a empresa cadastrada</span></div>", unsafe_allow_html=True)
 cod_cliente = st.selectbox("Empresa:", [""] + listar_empresas_no_repositorio(), label_visibility="collapsed")
@@ -84,7 +84,7 @@ if cod_cliente:
         as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_v103")
 
     if st.button("🚀 GERAR RELATÓRIO"):
-        with st.spinner("🧡 Sentinela processando motor maximalista total..."):
+        with st.spinner("🧡 Sentinela está processando..."):
             try:
                 df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
                 relat = gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente)
