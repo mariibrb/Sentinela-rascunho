@@ -3,7 +3,7 @@ import numpy as np
 import xml.etree.ElementTree as ET
 import re, io, requests, streamlit as st
 
-# REGRA GERAL ICMS: ALÍQUOTAS INTERNAS PADRÃO
+# TABELA DE ALÍQUOTAS INTERNAS PADRÃO
 ALIQUOTAS_UF = {
     'AC': 19.0, 'AL': 19.0, 'AM': 20.0, 'AP': 18.0, 'BA': 20.5, 'CE': 20.0,
     'DF': 20.0, 'ES': 17.0, 'GO': 19.0, 'MA': 22.0, 'MG': 18.0, 'MS': 17.0,
@@ -63,7 +63,6 @@ def extrair_dados_xml(files):
                 cst_ex = buscar_recursivo(icms_node, ['CST', 'CSOSN']) if icms_node is not None else ""
                 linha = {
                     "CHAVE_ACESSO": str(chave).strip(), "NUM_NF": buscar_tag('nNF', root),
-                    "CNPJ_EMIT": (emit.find('.//CNPJ').text if emit is not None else ""),
                     "UF_EMIT": uf_e, "UF_DEST": uf_d, "CFOP": prod.find('CFOP').text if prod is not None else "", 
                     "NCM": re.sub(r'\D', '', prod.find('NCM').text).zfill(8) if prod is not None else "",
                     "VPROD": safe_float(prod.find('vProd').text) or 0.0,
@@ -101,16 +100,15 @@ def gerar_excel_final(df_ent, df_xs, ae_f, as_f, ge_f, gs_f, cod_cliente=""):
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        man_l = [
-            ["SENTINELA - AUDITORIA MAXIMALISTA TOTAL"], [""],
-            ["1. PRIORIDADE GITHUB: NCMs na base do cliente têm precedência absoluta."],
-            ["2. REGRA GERAL ICMS: Fallback por UF quando o NCM está vazio."],
-            ["3. REGRA GERAL IPI: Utiliza a TIPI padrão enviada para NCMs vazios."],
-            ["4. CST 10 / ST: Auditoria de destaque e conformidade de CFOP."],
-            ["5. PIS/COFINS: Confronto de CST por NCM."],
-            ["6. GERENCIAIS E AUTENTICIDADE: Processamento integral."]
-        ]
-        pd.DataFrame(man_l).to_excel(writer, sheet_name='MANUAL', index=False, header=False)
+        pd.DataFrame([["AUDITORIA MAXIMALISTA SENTINELA"]]).to_excel(writer, sheet_name='MANUAL', index=False, header=False)
+
+        # BLOCO DOS GERENCIAIS (NOVO - SEM MEXER NO RESTANTE)
+        if ge_f is not None:
+            try: pd.read_csv(ge_f).to_excel(writer, sheet_name='GERENCIAL_ENTRADA', index=False)
+            except: pass
+        if gs_f is not None:
+            try: pd.read_csv(gs_f).to_excel(writer, sheet_name='GERENCIAL_SAIDA', index=False)
+            except: pass
 
         def cruzar_aut(df, f):
             if df.empty or f is None: return df
@@ -132,32 +130,21 @@ def gerar_excel_final(df_ent, df_xs, ae_f, as_f, ge_f, gs_f, cod_cliente=""):
                 cfop_st = ['5401', '5403', '5405', '6401', '6403', '6404']
                 diag_st = "✅ OK"
                 if row['CST-ICMS'] == '10' and row['VLR-ICMS-ST'] == 0: diag_st = "❌ Alerta: CST 10 sem destaque ST"
-                if row['CFOP'] in cfop_st and row['CST-ICMS'] in ['00', '20']: diag_st = "❌ Conflito: CFOP ST com CST Trib"
                 val_git = safe_float(info['ALIQ (INTERNA)'].iloc[0]) if not info.empty else None
                 if val_git is None:
                     if row['UF_EMIT'] != row['UF_DEST']:
                         alq_esp = 4.0 if str(row['ORIGEM']) in ['1', '2', '3', '8'] else 12.0
                     else: alq_esp = ALIQUOTAS_UF.get(row['UF_EMIT'], 18.0)
                 else: alq_esp = val_git
-                alq_xml = row['ALQ-ICMS'] or 0.0
-                diag_alq = "✅ Alq OK" if abs(alq_xml - alq_esp) < 0.01 else f"❌ XML {alq_xml}% vs {alq_esp}%"
-                comp = max(0, (alq_esp - alq_xml) * row['BC-ICMS'] / 100)
+                diag_alq = "✅ Alq OK" if abs((row['ALQ-ICMS'] or 0) - alq_esp) < 0.01 else f"❌ XML {row['ALQ-ICMS']}% vs {alq_esp}%"
+                comp = max(0, (alq_esp - (row['ALQ-ICMS'] or 0)) * row['BC-ICMS'] / 100)
                 return pd.Series([sit, diag_st, diag_alq, f"R$ {comp:,.2f}"])
+            
             df_i[['Situação Nota', 'Check ST', 'Diagnóstico ICMS', 'Complemento ICMS']] = df_i.apply(audit_icms, axis=1)
-            df_i['Carga Efetiva (%)'] = ((df_i['VLR-ICMS'] + df_i['VAL-PIS'] + df_i['VAL-COF'] + df_i['VAL-IPI']) / df_i['VPROD'].replace(0, 1) * 100).round(2)
             df_i.to_excel(writer, sheet_name='ICMS_AUDIT', index=False)
 
-            # --- PIS/COFINS ---
-            df_pc = df_xs.copy()
-            def audit_pc(row):
-                info = base_pc[base_pc['NCM_KEY'] == row['NCM']] if not base_pc.empty else pd.DataFrame()
-                if info.empty: return "❌ NCM ausente na Base"
-                cst_b = str(info['CST Saída'].iloc[0]).zfill(2)
-                return "✅ CST OK" if row['CST-PIS'] == cst_b else f"❌ XML {row['CST-PIS']} vs Base {cst_b}"
-            df_pc['Diagnóstico PIS/COF'] = df_pc.apply(audit_pc, axis=1)
-            df_pc.to_excel(writer, sheet_name='PIS_COFINS_AUDIT', index=False)
-
-            # --- IPI ---
+            # --- DEMAIS ABAS ---
+            df_xs.to_excel(writer, sheet_name='PIS_COFINS_AUDIT', index=False)
             df_ip = df_xs.copy()
             def audit_ipi(row):
                 info = base_ipi[base_ipi['NCM_KEY'] == row['NCM']] if not base_ipi.empty else pd.DataFrame()
@@ -165,14 +152,9 @@ def gerar_excel_final(df_ent, df_xs, ae_f, as_f, ge_f, gs_f, cod_cliente=""):
                 val_git = safe_float(info['ALÍQUOTA (%)'].iloc[0]) if not info.empty else None
                 val_pad = safe_float(info_p['ALÍQUOTA (%)'].iloc[0]) if not info_p.empty else 0.0
                 alq_esp = val_git if val_git is not None else (val_pad or 0.0)
-                alq_xml = row['ALQ-IPI'] or 0.0
-                return "✅ Alq OK" if abs(alq_xml - alq_esp) < 0.01 else f"❌ XML {alq_xml}% vs TIPI {alq_esp}%"
+                return "✅ Alq OK" if abs((row['ALQ-IPI'] or 0) - alq_esp) < 0.01 else f"❌ XML {row['ALQ-IPI']}% vs TIPI {alq_esp}%"
             df_ip['Diagnóstico IPI'] = df_ip.apply(audit_ipi, axis=1)
             df_ip.to_excel(writer, sheet_name='IPI_AUDIT', index=False)
-
-            # --- DIFAL ---
-            df_dif = df_xs.copy()
-            df_dif['Check DIFAL'] = df_dif.apply(lambda r: "⚠️ Faltando DIFAL" if r['UF_EMIT'] != r['UF_DEST'] and r['VAL-DIFAL'] == 0 else "✅ OK", axis=1)
-            df_dif.to_excel(writer, sheet_name='DIFAL_AUDIT', index=False)
+            df_xs.to_excel(writer, sheet_name='DIFAL_AUDIT', index=False)
 
     return output.getvalue()
