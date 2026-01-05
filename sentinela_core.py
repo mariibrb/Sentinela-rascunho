@@ -36,20 +36,15 @@ def extrair_dados_xml(files):
                     "CST_ICMS_XML": "", "CST_PIS_XML": "", "CST_IPI_XML": ""
                 }
                 if imp is not None:
-                    # ICMS
-                    icms = imp.find('.//ICMS')
+                    icms = imp.find('.//ICMS'); pis = imp.find('.//PIS'); ipi = imp.find('.//IPI')
                     if icms is not None:
                         for n in icms:
                             cst = n.find('CST') or n.find('CSOSN')
                             if cst is not None: linha["CST_ICMS_XML"] = cst.text.zfill(2)
-                    # PIS
-                    pis = imp.find('.//PIS')
                     if pis is not None:
                         for n in pis:
                             cst = n.find('CST')
                             if cst is not None: linha["CST_PIS_XML"] = cst.text.zfill(2)
-                    # IPI
-                    ipi = imp.find('.//IPI')
                     if ipi is not None:
                         for n in ipi:
                             cst = n.find('CST')
@@ -64,7 +59,7 @@ def gerar_excel_final(df_xe, df_xs, b_unica, ae, as_f, ge, gs, cod_cliente=""):
     avisos = [] 
 
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        # ABA 1: MANUAL (Apenas texto limpo conforme solicitado)
+        # ABA 1: MANUAL
         pd.DataFrame({
             "INSTRUÇÕES SENTINELA": [
                 "1. Aba RESUMO: Confira se todos os arquivos foram processados.",
@@ -75,40 +70,47 @@ def gerar_excel_final(df_xe, df_xs, b_unica, ae, as_f, ge, gs, cod_cliente=""):
             ]
         }).to_excel(writer, sheet_name='MANUAL', index=False)
 
-        # PROCESSAMENTO DAS ANÁLISES POR TRIBUTO
+        # PROCESSAMENTO TRIBUTÁRIO
         if base_final and (not df_xe.empty or not df_xs.empty):
             try:
-                # Carrega as tabelas da base
                 df_b_icms = pd.read_excel(base_final, sheet_name='ICMS')
                 df_b_ipi = pd.read_excel(base_final, sheet_name='IPI')
                 df_b_pc = pd.read_excel(base_final, sheet_name='PIS_COFINS')
 
                 def processar_tributos(df_xml, tipo):
                     if df_xml.empty: return
-                    # Análise ICMS
+                    # Cruzamento com Base
                     df_icms = pd.merge(df_xml, df_b_icms, left_on='NCM_XML', right_on='NCM', how='left')
                     df_icms['CHECK_ICMS'] = np.where(df_icms['CST_ICMS_XML'] == df_icms['CST (INTERNA)'].astype(str).str.zfill(2), "✅", "❌")
                     df_icms.to_excel(writer, sheet_name=f'ANALISE_ICMS_{tipo}', index=False)
-                    # Análise IPI
+                    
                     df_ipi = pd.merge(df_xml, df_b_ipi, left_on='NCM_XML', right_on='NCM_TIPI', how='left')
                     df_ipi.to_excel(writer, sheet_name=f'ANALISE_IPI_{tipo}', index=False)
-                    # Análise PIS/COFINS
+                    
                     df_pc = pd.merge(df_xml, df_b_pc, left_on='NCM_XML', right_on='NCM', how='left')
                     col_base = 'CST Entrada' if tipo == 'ENT' else 'CST Saída'
                     df_pc['CHECK_PC'] = np.where(df_pc['CST_PIS_XML'] == df_pc[col_base].astype(str).str.zfill(2), "✅", "❌")
                     df_pc.to_excel(writer, sheet_name=f'ANALISE_PISCOFINS_{tipo}', index=False)
 
-                processar_tributos(df_xe, 'ENT')
-                processar_tributos(df_xs, 'SAI')
-            except: avisos.append("Erro ao ler abas da base tributária.")
+                processar_tributos(df_xe, 'ENT'); processar_tributos(df_xs, 'SAI')
+            except Exception as e: avisos.append(f"Aviso: Erro nas regras tributárias ({e})")
 
-        # ABAS DE APOIO
-        if ge: pd.read_csv(ge, sep=None, engine='python').to_excel(writer, sheet_name='GERENCIAL_ENT', index=False)
-        if gs: pd.read_csv(gs, sep=None, engine='python').to_excel(writer, sheet_name='GERENCIAL_SAI', index=False)
+        # GERENCIAIS (Lógica restaurada e robusta)
+        def ler_gerencial(file, nome_aba):
+            if not file: return
+            try:
+                # Restaura a leitura correta do CSV ignorando linhas malformadas
+                df = pd.read_csv(file, sep=None, engine='python', on_bad_lines='skip')
+                df.to_excel(writer, sheet_name=nome_aba, index=False)
+            except: avisos.append(f"Aviso: Falha ao ler Gerencial {nome_aba}")
+
+        ler_gerencial(ge, 'GERENCIAL_ENT'); ler_gerencial(gs, 'GERENCIAL_SAI')
+        
+        # AUTENTICIDADE
         if ae: pd.read_excel(ae).to_excel(writer, sheet_name='AUTENTICIDADE_ENT', index=False)
         if as_f: pd.read_excel(as_f).to_excel(writer, sheet_name='AUTENTICIDADE_SAI', index=False)
 
-        # ABA DE STATUS (Última)
-        pd.DataFrame({"STATUS": avisos if avisos else ["Sucesso"]}).to_excel(writer, sheet_name='RESUMO', index=False)
+        # STATUS (Última Aba)
+        pd.DataFrame({"STATUS": avisos if avisos else ["Processamento concluído."]}).to_excel(writer, sheet_name='RESUMO', index=False)
             
     return output.getvalue()
