@@ -38,7 +38,7 @@ with c2:
     if os.path.exists(".streamlit/Sentinela.png"):
         st.image(".streamlit/Sentinela.png", use_container_width=True)
     else:
-        st.title("🚀 SENTINELA NASCEL 🧡")
+        st.title("🚀 SENTINELA NASCEL")
 
 st.markdown("---")
 
