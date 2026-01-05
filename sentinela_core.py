@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 import re, io, requests, streamlit as st
 
 def safe_float(v):
+    """Converte valores do XML/Excel de forma robusta: 12 ou 12,0 ou 12.0 = 12.0"""
     if v is None: return 0.0
     try:
         txt = str(v).replace('R$', '').replace(' ', '').strip()
@@ -48,7 +49,7 @@ def extrair_dados_xml(files):
             for det in root.findall('.//det'):
                 prod = det.find('prod'); imp = det.find('imposto')
                 
-                # BUSCA PROFUNDA CST/CSOSN
+                # BUSCA PROFUNDA CST/CSOSN (Varre sub-tags ICMS00-90)
                 cst_ex = ""; orig_ex = ""
                 icms_node = imp.find('.//ICMS')
                 if icms_node is not None:
@@ -82,24 +83,32 @@ def gerar_excel_final(df_ent, df_sai, ae_f, as_f, cod_cliente=""):
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        # --- MANUAL COMPLETO DA FACE DA TERRA (LINHA A LINHA) ---
+        # --- O MANUAL MAIS COMPLETO DA FACE DA TERRA ---
         man_l = [
-            ["SENTINELA - MANUAL COMPLETO DE OPERAÇÃO"],
+            ["SENTINELA - MANUAL TÉCNICO DE AUDITORIA FISCAL COMPLETO"],
             [""],
-            ["1. OBJETIVO"],
-            ["Auditar arquivos XML contra a Base Tributária GitHub para identificar divergências."],
+            ["1. OBJETIVO DO SISTEMA"],
+            ["Este motor realiza o cruzamento de dados de XMLs com a Base Tributária GitHub para"],
+            ["identificar divergências de alíquotas, códigos CST e status de autenticidade (cancelamento)."],
             [""],
-            ["2. EXTRAÇÃO DE DADOS"],
-            ["- CST: Busca profunda em tags ICMS00-90 e CSOSN."],
-            ["- CNPJ: Emitente e Destinatário presentes em todas as linhas."],
-            ["- Números: Conversão inteligente (12 = 12.0 = 12,0)."],
+            ["2. EXTRAÇÃO E TRATAMENTO DE DADOS"],
+            ["- CST/CSOSN: Capturado via busca profunda em todas as variações de tags ICMS da SEFAZ."],
+            ["- CNPJ/CPF: Identificação de emitente e destinatário incluída em todas as abas."],
+            ["- ESCALA NUMÉRICA: Conversão inteligente que padroniza pontuações de alíquotas (12 = 12.0 = 12,0)."],
             [""],
-            ["3. DIAGNÓSTICOS"],
-            ["✅ Correto: XML e Base coincidem."],
-            ["❌ Divergente: Alíquota no XML diferente da Base."],
-            ["❌ NCM Ausente: NCM não cadastrado na sua Base GitHub."],
-            ["⚠️ N/Verif: Falta do arquivo de autenticidade para checar cancelamento."],
-            [""]
+            ["3. GLOSSÁRIO DE DIAGNÓSTICOS"],
+            ["- ✅ Correto: Informações do XML condizem 100% com a Base GitHub."],
+            ["- ❌ Divergente: Foi encontrada uma diferença de valor ou código tributário."],
+            ["- ❌ NCM Ausente: O item da nota não possui cadastro na Base da empresa."],
+            ["- ⚠️ N/Verif: O status da nota não pôde ser validado (arquivo de autenticidade ausente)."],
+            [""],
+            ["4. REGRAS DE CRUZAMENTO"],
+            ["- Situação Nota: Status real SEFAZ (Autorizado/Cancelado) cruzado pela Chave de Acesso."],
+            ["- ST na Entrada: Verificação histórica de retenção de ST nos XMLs de entrada carregados."],
+            ["- Complemento: Cálculo financeiro do imposto devido com base na divergência encontrada."],
+            [""],
+            ["5. RESUMO DE ERROS"],
+            ["A aba final funciona como um checklist operacional, listando apenas notas com problemas."]
         ]
         pd.DataFrame(man_l).to_excel(writer, sheet_name='MANUAL', index=False, header=False)
         writer.sheets['MANUAL'].set_column('A:A', 110)
@@ -113,7 +122,7 @@ def gerar_excel_final(df_ent, df_sai, ae_f, as_f, cod_cliente=""):
         df_sai = cruzar(df_sai, as_f); df_ent = cruzar(df_ent, ae_f)
 
         if not df_sai.empty:
-            # ICMS AUDIT
+            # ICMS AUDIT (Tags + Análise)
             df_i = df_sai.copy(); ncm_st = df_ent[(df_ent['CST-ICMS']=="60")]['NCM'].unique().tolist() if not df_ent.empty else []
             def audit_icms(row):
                 info = base_icms[base_icms['NCM_KEY'] == row['NCM']]
