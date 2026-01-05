@@ -29,8 +29,7 @@ def extrair_dados_xml(files):
                     "NCM": re.sub(r'\D', '', buscar('NCM', prod)).zfill(8),
                     "COD_PROD": buscar('cProd', prod), "DESCRICAO": buscar('xProd', prod),
                     "VALOR_PRODUTO": float(buscar('vProd', prod) or 0),
-                    "CST_ICMS": "", "BC_ICMS": 0.0, "VLR_ICMS": 0.0, "VLR_IPI": 0.0, "VLR_PIS": 0.0, "VLR_COFINS": 0.0,
-                    "CENQ_IPI": ""
+                    "CST_ICMS": "", "BC_ICMS": 0.0, "VLR_ICMS": 0.0, "VLR_IPI": 0.0, "VLR_PIS": 0.0, "VLR_COFINS": 0.0
                 }
                 if imp is not None:
                     icms_tag = imp.find('.//ICMS')
@@ -41,22 +40,18 @@ def extrair_dados_xml(files):
                             if n.find('vBC') is not None: linha["BC_ICMS"] = float(n.find('vBC').text)
                             if n.find('vICMS') is not None: linha["VLR_ICMS"] = float(n.find('vICMS').text)
                     
-                    ipi_tag = imp.find('.//IPI')
-                    if ipi_tag is not None:
-                        vIPI = ipi_tag.find('.//vIPI')
-                        if vIPI is not None: linha["VLR_IPI"] = float(vIPI.text)
-                        cenq = ipi_tag.find('.//cEnq')
-                        if cenq is not None: linha["CENQ_IPI"] = cenq.text
-
-                    pis = imp.find('.//PIS//vPIS')
-                    if pis is not None: linha["VLR_PIS"] = float(pis.text)
-                    cofins = imp.find('.//COFINS//vCOFINS')
-                    if cofins is not None: linha["VLR_COFINS"] = float(cofins.text)
+                    vIpi = imp.find('.//IPI/vIPI')
+                    if vIpi is not None: linha["VLR_IPI"] = float(vIpi.text)
+                    vPis = imp.find('.//PIS//vPIS')
+                    if vPis is not None: linha["VLR_PIS"] = float(vPis.text)
+                    vCofins = imp.find('.//COFINS//vCOFINS')
+                    if vCofins is not None: linha["VLR_COFINS"] = float(vCofins.text)
+                    
                 dados_lista.append(linha)
         except: continue
     return pd.DataFrame(dados_lista)
 
-def gerar_excel_final(df_xe, df_xs, b_icms, b_pc, ae, as_f, ge, gs, b_ipi, cod_cliente=""):
+def gerar_excel_final(df_xe, df_xs, b_unica, ae, as_f, ge, gs, cod_cliente=""):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         if not df_xe.empty: df_xe.to_excel(writer, sheet_name='XML_ENTRADAS', index=False)
@@ -69,15 +64,8 @@ def gerar_excel_final(df_xe, df_xs, b_icms, b_pc, ae, as_f, ge, gs, b_ipi, cod_c
             try: pd.read_csv(gs, sep=None, engine='python').to_excel(writer, sheet_name='GERENCIAL_SAIDA', index=False)
             except: pass
 
-        # Bases seguindo o padrão da Mirão
-        if b_icms is not None:
-            try: pd.read_excel(b_icms).to_excel(writer, sheet_name='MIRÃO_ICMS', index=False)
-            except: pass
-        if b_ipi is not None:
-            try: pd.read_excel(b_ipi).to_excel(writer, sheet_name='MIRÃO_IPI', index=False)
-            except: pass
-        if b_pc is not None:
-            try: pd.read_excel(b_pc).to_excel(writer, sheet_name='MIRÃO_PIS_COFINS', index=False)
+        if b_unica is not None:
+            try: pd.read_excel(b_unica).to_excel(writer, sheet_name='BASE_AUDITORIA', index=False)
             except: pass
             
     return output.getvalue()
