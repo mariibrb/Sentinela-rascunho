@@ -3,6 +3,7 @@ import numpy as np
 import xml.etree.ElementTree as ET
 import re, io, requests, streamlit as st
 
+# TABELA DE ALÍQUOTAS INTERNAS PADRÃO POR UF
 ALIQUOTAS_UF = {
     'AC': 19.0, 'AL': 19.0, 'AM': 20.0, 'AP': 18.0, 'BA': 20.5, 'CE': 20.0,
     'DF': 20.0, 'ES': 17.0, 'GO': 19.0, 'MA': 22.0, 'MG': 18.0, 'MS': 17.0,
@@ -12,13 +13,13 @@ ALIQUOTAS_UF = {
 }
 
 def safe_float(v):
-    if v is None or pd.isna(v) or str(v).strip().upper() == 'NT': return None
+    if v is None or pd.isna(v) or str(v).strip().upper() == 'NT': return 0.0
     try:
         txt = str(v).replace('R$', '').replace(' ', '').replace('%', '').replace('(', '').replace(')', '').strip()
         if ',' in txt and '.' in txt: txt = txt.replace('.', '').replace(',', '.')
         elif ',' in txt: txt = txt.replace(',', '.')
         return round(float(txt), 4)
-    except: return None
+    except: return 0.0
 
 def buscar_base_no_repositorio(cod_cliente):
     token = st.secrets.get("GITHUB_TOKEN")
@@ -53,33 +54,38 @@ def extrair_dados_xml(files):
                     tag_limpa = elem.tag.split('}')[-1]
                     if tag_limpa in tags_alvo: return elem.text
                 return ""
+            
             inf = root.find('.//infNFe'); chave = inf.attrib.get('Id', '')[3:] if inf is not None else ""
             emit = root.find('.//emit'); dest = root.find('.//dest')
             uf_e = emit.find('.//UF').text if emit is not None else ""
             uf_d = dest.find('.//UF').text if dest is not None else ""
+            ind_ie = buscar_tag('indIEDest', dest) if dest is not None else ""
+            
             for det in root.findall('.//det'):
                 prod = det.find('prod'); imp = det.find('imposto')
                 icms_node = imp.find('.//ICMS') if imp is not None else None
                 cst_ex = buscar_recursivo(icms_node, ['CST', 'CSOSN'])
                 linha = {
                     "CHAVE_ACESSO": str(chave).strip(), "NUM_NF": buscar_tag('nNF', root),
-                    "UF_EMIT": uf_e, "UF_DEST": uf_d, "CFOP": prod.find('CFOP').text if prod is not None else "", 
+                    "UF_EMIT": uf_e, "UF_DEST": uf_d, "indIEDest": ind_ie,
+                    "CFOP": prod.find('CFOP').text if prod is not None else "", 
                     "NCM": re.sub(r'\D', '', prod.find('NCM').text).zfill(8) if prod is not None else "",
-                    "VPROD": safe_float(prod.find('vProd').text) or 0.0,
-                    "ORIGEM": buscar_recursivo(icms_node, ['orig']), "CST-ICMS": cst_ex.zfill(2) if cst_ex else "",
-                    "BC-ICMS": safe_float(buscar_recursivo(imp, ['vBC'])) or 0.0, 
+                    "VPROD": safe_float(prod.find('vProd').text),
+                    "ORIGEM": buscar_recursivo(icms_node, ['orig']), 
+                    "CST-ICMS": cst_ex.zfill(2) if cst_ex else "",
+                    "BC-ICMS": safe_float(buscar_recursivo(imp, ['vBC'])), 
                     "ALQ-ICMS": safe_float(buscar_recursivo(imp, ['pICMS'])), 
-                    "VLR-ICMS": safe_float(buscar_recursivo(imp, ['vICMS'])) or 0.0,
-                    "VLR-ICMS-ST": safe_float(buscar_recursivo(imp, ['vICMSST'])) or 0.0,
+                    "VLR-ICMS": safe_float(buscar_recursivo(imp, ['vICMS'])),
+                    "VLR-ICMS-ST": safe_float(buscar_recursivo(imp, ['vICMSST'])),
                     "CST-PIS": buscar_recursivo(imp.find('.//PIS'), ['CST']),
-                    "VAL-PIS": safe_float(buscar_recursivo(imp.find('.//PIS'), ['vPIS'])) or 0.0,
+                    "VAL-PIS": safe_float(buscar_recursivo(imp.find('.//PIS'), ['vPIS'])),
                     "CST-COF": buscar_recursivo(imp.find('.//COFINS'), ['CST']),
-                    "VAL-COF": safe_float(buscar_recursivo(imp.find('.//COFINS'), ['vCOFINS'])) or 0.0,
+                    "VAL-COF": safe_float(buscar_recursivo(imp.find('.//COFINS'), ['vCOFINS'])),
                     "CST-IPI": buscar_recursivo(imp.find('.//IPI'), ['CST']),
                     "ALQ-IPI": safe_float(buscar_recursivo(imp.find('.//IPI'), ['pIPI'])),
-                    "VAL-IPI": safe_float(buscar_recursivo(imp.find('.//IPI'), ['vIPI'])) or 0.0,
-                    "VAL-DIFAL": safe_float(buscar_recursivo(imp, ['vICMSUFDest'])) or 0.0,
-                    "VAL-FCP-DEST": safe_float(buscar_recursivo(imp, ['vFCPUFDest'])) or 0.0
+                    "VAL-IPI": safe_float(buscar_recursivo(imp.find('.//IPI'), ['vIPI'])),
+                    "VAL-DIFAL": safe_float(buscar_recursivo(imp, ['vICMSUFDest'])),
+                    "VAL-FCP-DEST": safe_float(buscar_recursivo(imp, ['vFCPUFDest']))
                 }
                 dados_lista.append(linha)
         except: continue
@@ -121,13 +127,14 @@ def gerar_excel_final(df_ent, df_xs, ae_f, as_f, ge_f, gs_f, cod_cliente=""):
         df_xs = cruzar_aut(df_xs, as_f)
 
         if not df_xs.empty:
+            # --- ICMS ---
             df_i = df_xs.copy()
             def audit_icms(row):
                 info = base_icms[base_icms['NCM_KEY'] == row['NCM']] if not base_icms.empty else pd.DataFrame()
                 diag_st = "✅ OK"
                 if row['CST-ICMS'] == '10' and row['VLR-ICMS-ST'] == 0: diag_st = "❌ Alerta: CST 10 sem destaque ST"
                 val_git = safe_float(info['ALIQ (INTERNA)'].iloc[0]) if not info.empty else None
-                if val_git is None:
+                if val_git == 0:
                     if row['UF_EMIT'] != row['UF_DEST']:
                         alq_esp = 4.0 if str(row['ORIGEM']) in ['1', '2', '3', '8'] else 12.0
                         fonte = "Interestadual (Regra Geral)"
@@ -135,43 +142,37 @@ def gerar_excel_final(df_ent, df_xs, ae_f, as_f, ge_f, gs_f, cod_cliente=""):
                         alq_esp = ALIQUOTAS_UF.get(row['UF_EMIT'], 18.0)
                         fonte = f"Interna {row['UF_EMIT']} (Regra Geral)"
                 else: alq_esp = val_git; fonte = "Base Cadastrada"
-                diag_alq = "✅ Alq OK" if abs((row['ALQ-ICMS'] or 0) - alq_esp) < 0.01 else f"❌ XML {row['ALQ-ICMS']}% vs {alq_esp}%"
-                comp = max(0, (alq_esp - (row['ALQ-ICMS'] or 0)) * (row['BC-ICMS'] or 0.0) / 100)
+                diag_alq = "✅ Alq OK" if abs(row['ALQ-ICMS'] - alq_esp) < 0.01 else f"❌ XML {row['ALQ-ICMS']}% vs {alq_esp}%"
+                comp = max(0, (alq_esp - row['ALQ-ICMS']) * row['BC-ICMS'] / 100)
                 return pd.Series([row.get('Situação Nota', '⚠️ N/V'), fonte, diag_st, diag_alq, f"R$ {comp:,.2f}"])
-            
             df_i[['Situação Nota', 'Fonte Regra', 'Check ST', 'Diagnóstico ICMS', 'Complemento ICMS']] = df_i.apply(audit_icms, axis=1)
             df_i.to_excel(writer, sheet_name='ICMS_AUDIT', index=False)
 
-            # PIS/COFINS
-            df_pc = df_xs.copy()
-            def audit_pc(row):
-                info = base_pc[base_pc['NCM_KEY'] == row['NCM']] if not base_pc.empty else pd.DataFrame()
-                if info.empty: return "❌ NCM ausente na Base"
-                cst_b = str(info['CST Saída'].iloc[0]).zfill(2)
-                return "✅ CST OK" if row['CST-PIS'] == cst_b else f"❌ XML {row['CST-PIS']} vs Base {cst_b}"
-            df_pc['Diagnóstico PIS/COF'] = df_pc.apply(audit_pc, axis=1)
-            df_pc.to_excel(writer, sheet_name='PIS_COFINS_AUDIT', index=False)
-
-            # IPI
-            df_ip = df_xs.copy()
-            def audit_ipi(row):
-                info = base_ipi[base_ipi['NCM_KEY'] == row['NCM']] if not base_ipi.empty else pd.DataFrame()
-                info_p = tipi_padrao[tipi_padrao['NCM_KEY'] == row['NCM']] if not tipi_padrao.empty else pd.DataFrame()
-                v_git = safe_float(info['ALÍQUOTA (%)'].iloc[0]) if not info.empty else None
-                v_pad = safe_float(info_p['ALÍQUOTA (%)'].iloc[0]) if not info_p.empty else 0.0
-                alq_esp = v_git if v_git is not None else (v_pad or 0.0)
-                return "✅ Alq OK" if abs((row['ALQ-IPI'] or 0) - alq_esp) < 0.01 else f"❌ XML {row['ALQ-IPI']}% vs TIPI {alq_esp}%"
-            df_ip['Diagnóstico IPI'] = df_ip.apply(audit_ipi, axis=1)
-            df_ip.to_excel(writer, sheet_name='IPI_AUDIT', index=False)
-
-            # DIFAL
+            # --- DIFAL (AUDITORIA COMPLETA) ---
             df_dif = df_xs.copy()
             def audit_difal(r):
                 if r['UF_EMIT'] != r['UF_DEST']:
-                    v_dif = (r['VAL-DIFAL'] or 0.0) + (r['VAL-FCP-DEST'] or 0.0)
-                    return "✅ DIFAL Localizado" if v_dif > 0 else "⚠️ Sem destaque DIFAL/FCP"
+                    alq_dest = ALIQUOTAS_UF.get(r['UF_DEST'], 18.0)
+                    alq_orig = r['ALQ-ICMS']
+                    difal_esp_perc = max(0, alq_dest - alq_orig)
+                    v_difal_xml = r['VAL-DIFAL'] + r['VAL-FCP-DEST']
+                    
+                    if str(r['indIEDest']) in ['9']: # Não Contribuinte
+                        return "✅ DIFAL OK" if v_difal_xml > 0 else "⚠️ Alerta: Não-Contribuinte sem DIFAL XML"
+                    else: # Contribuinte
+                        return f"⚠️ DIFAL Devido {difal_esp_perc}% (Diferença de Alíquotas)"
                 return "Operação Interna"
-            df_dif['Diagnóstico DIFAL'] = df_dif.apply(audit_difal, axis=1)
+            df_dif['Análise DIFAL'] = df_dif.apply(audit_difal, axis=1)
             df_dif.to_excel(writer, sheet_name='DIFAL_AUDIT', index=False)
+
+            # --- DEMAIS ABAS ---
+            df_xs.to_excel(writer, sheet_name='PIS_COFINS_AUDIT', index=False)
+            df_ip = df_xs.copy()
+            def audit_ipi(row):
+                info_p = tipi_padrao[tipi_padrao['NCM_KEY'] == row['NCM']] if not tipi_padrao.empty else pd.DataFrame()
+                val_pad = safe_float(info_p['ALÍQUOTA (%)'].iloc[0]) if not info_p.empty else 0.0
+                return "✅ Alq OK" if abs(row['ALQ-IPI'] - val_pad) < 0.01 else f"❌ XML {row['ALQ-IPI']}% vs TIPI {val_pad}%"
+            df_ip['Diagnóstico IPI'] = df_ip.apply(audit_ipi, axis=1)
+            df_ip.to_excel(writer, sheet_name='IPI_AUDIT', index=False)
 
     return output.getvalue()
