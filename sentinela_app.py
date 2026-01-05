@@ -6,52 +6,54 @@ from sentinela_core import extrair_dados_xml, gerar_excel_final
 # 1. Configuração da Página
 st.set_page_config(page_title="Sentinela Nascel", page_icon="🧡", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Estilo CSS Nascel (Correção Definitiva de Alinhamento)
+# 2. Estilo CSS Nascel (O "Pulo do Gato" para Centralização Real)
 st.markdown("""
 <style>
     .stApp { background-color: #F7F7F7; }
     [data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 2px solid #FF6F00; }
-    
-    /* Centralização das Logos na Sidebar */
-    [data-testid="stSidebar"] [data-testid="stImage"] {
-        display: flex !important;
-        justify-content: center !important;
-        margin: 0 auto !important;
-    }
-    
-    /* Forçar centralização do Título e Passos */
     h1, h2, h3 { color: #FF6F00 !important; font-weight: 700; text-align: center; }
 
-    /* Centralização do Botão Gerar Relatório */
+    /* Centralização das Logos na Sidebar */
+    .logo-sidebar-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        margin-bottom: 20px;
+    }
+
+    /* Centralização do Botão na Tela Principal */
     .stButton {
-        display: flex !important;
-        justify-content: center !important;
-        width: 100% !important;
-        margin-top: 20px !important;
+        display: flex;
+        justify-content: center;
+        width: 100%;
     }
     .stButton > button {
         background-color: #FF6F00 !important;
         color: white !important;
         border-radius: 25px !important;
         font-weight: bold !important;
-        width: 280px !important;
+        width: 300px !important;
         height: 50px !important;
         border: none !important;
+        margin: 0 auto !important;
+        display: block !important;
     }
-
-    /* Estilo dos Passos com Pesinhos Cinzas */
+    
+    /* Passos Delicados com Pesinhos Cinzas */
     .passo-container {
         background-color: #FFFFFF;
-        padding: 10px 15px;
+        padding: 8px 15px;
         border-radius: 10px;
-        border-left: 5px solid #FF6F00;
-        margin: 10px auto 20px auto;
-        max-width: 600px;
+        border-left: 4px solid #FF6F00;
+        margin: 10px auto 15px auto;
+        max-width: 650px;
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         text-align: center;
     }
-    .passinho { color: #808080 !important; font-size: 1.2rem; margin-right: 8px; }
-    .passo-texto { color: #FF6F00; font-size: 1.1rem; font-weight: 700; }
+    .passinho { color: #808080 !important; font-size: 1.1rem; margin-right: 8px; }
+    .passo-texto { color: #FF6F00; font-size: 1rem; font-weight: 700; }
 
     .stFileUploader section { background-color: #FFFFFF; border: 1px dashed #FF6F00 !important; border-radius: 12px !important; }
 </style>
@@ -71,13 +73,15 @@ def listar_empresas_no_github():
     except: pass
     return []
 
-# --- 3. SIDEBAR ---
+# --- 3. SIDEBAR (Logos Centralizados à Força) ---
 with st.sidebar:
+    st.markdown('<div class="logo-sidebar-container">', unsafe_allow_html=True)
     if os.path.exists(".streamlit/Sentinela.png"):
         st.image(".streamlit/Sentinela.png", use_container_width=True)
     
     if os.path.exists(".streamlit/nascel sem fundo.png"):
         st.image(".streamlit/nascel sem fundo.png", width=140)
+    st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown("---")
     st.subheader("📥 Gabaritos")
@@ -106,7 +110,7 @@ with st.sidebar:
     if st.file_uploader("Upload da Base", type=['xlsx'], key='base_construcao'): 
         st.error("🚧 CAMPO EM CONSTRUÇÃO")
 
-# --- 4. TELA PRINCIPAL ---
+# --- 4. TELA PRINCIPAL (FLUXO GUIADO) ---
 
 # PASSO 1
 st.markdown("<div class='passo-container'><span class='passinho'>👣</span><span class='passo-texto'>PASSO 1: Selecione o cliente</span></div>", unsafe_allow_html=True)
@@ -120,23 +124,23 @@ if cod_cliente:
     c_e, c_s = st.columns(2, gap="medium")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xe_v24")
-        ge = st.file_uploader("Gerencial", type=['csv'], key="ge_v24")
-        ae = st.file_uploader("Autenticidade", type=['xlsx'], key="ae_v24")
+        xe = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xe_v25")
+        ge = st.file_uploader("Gerencial", type=['csv'], key="ge_v25")
+        ae = st.file_uploader("Autenticidade", type=['xlsx'], key="ae_v25")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xs_v24")
-        gs = st.file_uploader("Gerencial", type=['csv'], key="gs_v24")
-        as_f = st.file_uploader("Autenticidade", type=['xlsx'], key="as_v24")
+        xs = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xs_v25")
+        gs = st.file_uploader("Gerencial", type=['csv'], key="gs_v25")
+        as_f = st.file_uploader("Autenticidade", type=['xlsx'], key="as_v25")
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Executar centralizado
+    # Botão Centralizado com CSS Flexbox
     if st.button("🚀 GERAR RELATÓRIO"):
         with st.spinner("🧡 O Sentinela está auditando..."):
             try:
                 df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
                 relat = gerar_excel_final(df_xe, df_xs, None, ae, as_f, ge, gs, cod_cliente)
-                st.success("Relatório pronto! 🧡")
-                st.download_button("💾 BAIXAR AGORA", relat, f"Sentinela_{cod_cliente}.xlsx", use_container_width=True)
+                st.success("Relatório gerado com sucesso! 🧡")
+                st.download_button("💾 BAIXAR AGORA", relat, f"Relatorio_{cod_cliente}.xlsx", use_container_width=True)
             except Exception as e: st.error(f"Erro: {e}")
