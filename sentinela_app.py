@@ -6,7 +6,7 @@ from sentinela_core import extrair_dados_xml, gerar_excel_final
 # 1. Configuração da Página
 st.set_page_config(page_title="Sentinela - Auditoria Fiscal", page_icon="🧡", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Estilo CSS Sentinela
+# 2. Estilo CSS Sentinela (Maximalista)
 st.markdown("""
 <style>
     header {visibility: hidden !important;}
@@ -20,10 +20,10 @@ st.markdown("""
     }
     .passo-container {
         background-color: #FFFFFF; padding: 15px; border-radius: 10px; border-left: 5px solid #FF6F00;
-        margin-bottom: 20px; text-align: center; box-shadow: 0px 2px 5px rgba(0,0,0,0.05);
+        margin-bottom: 20px; text-align: center; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
     }
-    .passo-texto { color: #FF6F00; font-size: 1.1rem; font-weight: 700; }
-    .stFileUploader section { background-color: #FFFFFF; border: 1px dashed #FF6F00 !important; }
+    .passo-texto { color: #FF6F00; font-size: 1.2rem; font-weight: 800; }
+    .stFileUploader section { background-color: #FFFFFF; border: 2px dashed #FF6F00 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -57,32 +57,32 @@ with st.sidebar:
                 pd.DataFrame(columns=c_l).to_excel(writer, sheet_name=s, index=False)
                 for c, v in enumerate(c_l): writer.sheets[s].write(0, c, v, f_ncm if c == 0 else f_lar)
         return output.getvalue()
-    st.download_button("📥 Gabarito GitHub", criar_gabarito(), "gabarito_base.xlsx", use_container_width=True)
+    st.download_button("📥 Gabarito para GitHub", criar_gabarito(), "gabarito_base_sentinela.xlsx", use_container_width=True)
 
-st.markdown("<div class='passo-container'><span class='passo-texto'>👣 PASSO 1: Empresa</span></div>", unsafe_allow_html=True)
-cod_cliente = st.selectbox("Selecione a empresa cadastrada:", [""] + listar_empresas_no_github())
+st.markdown("<div class='passo-container'><span class='passo-texto'>👣 PASSO 1: Selecionar Empresa Cadastrada</span></div>", unsafe_allow_html=True)
+cod_cliente = st.selectbox("Selecione a empresa cadastrada no GitHub:", [""] + listar_empresas_no_github(), label_visibility="collapsed")
 
 if cod_cliente:
-    st.markdown("<div class='passo-container'><span class='passo-texto'>👣 PASSO 2: Documentos</span></div>", unsafe_allow_html=True)
+    st.markdown("<div class='passo-container'><span class='passo-texto'>👣 PASSO 2: Carregar XMLs e Autenticidade</span></div>", unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
-        st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_v71")
-        gs = st.file_uploader("Gerencial Saída (CSV)", type=['csv'], key="gs_v71")
-        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx'], key="as_v71")
+        st.subheader("📤 SAÍDAS (Auditoria)")
+        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_v74")
+        gs = st.file_uploader("Gerencial Saída (CSV)", type=['csv'], key="gs_v74")
+        as_f = st.file_uploader("Autenticidade Saída (Excel)", type=['xlsx'], key="as_v74")
     with c2:
-        st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_v71")
-        ge = st.file_uploader("Gerencial Entrada (CSV)", type=['csv'], key="ge_v71")
-        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx'], key="ae_v71")
+        st.subheader("📥 ENTRADAS (Cruzamento ST)")
+        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_v74")
+        ge = st.file_uploader("Gerencial Entrada (CSV)", type=['csv'], key="ge_v74")
+        ae = st.file_uploader("Autenticidade Entrada (Excel)", type=['xlsx'], key="ae_v74")
 
-    if st.button("🚀 EXECUTAR AUDITORIA"):
-        if not xs: st.warning("Carregue ao menos os XMLs de Saída.")
+    if st.button("🚀 EXECUTAR DIAGNÓSTICO MAXIMALISTA"):
+        if not xs: st.warning("Por favor, carregue os XMLs de Saída para iniciar.")
         else:
-            with st.spinner("🧡 Sentinela extraindo CSTs e Auditando..."):
+            with st.spinner("🧡 Sentinela processando motor maximalista..."):
                 try:
                     df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
                     relat = gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente)
-                    st.success("Auditoria Concluída!")
-                    st.download_button("💾 BAIXAR RELATÓRIO", relat, f"Sentinela_{cod_cliente}.xlsx", use_container_width=True)
-                except Exception as e: st.error(f"Erro: {e}")
+                    st.success("Diagnóstico Gerado com Sucesso! 🧡")
+                    st.download_button("💾 BAIXAR RELATÓRIO COMPLETO", relat, f"Sentinela_Diagnostico_{cod_cliente}.xlsx", use_container_width=True)
+                except Exception as e: st.error(f"Erro no Processamento: {e}")
