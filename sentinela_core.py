@@ -4,7 +4,6 @@ import xml.etree.ElementTree as ET
 import re, io, requests, streamlit as st
 
 def safe_float(v):
-    """Converte valores do XML/Excel de forma robusta: 12 ou 12,0 ou 12.0 = 12.0"""
     if v is None: return 0.0
     try:
         txt = str(v).replace('R$', '').replace(' ', '').strip()
@@ -49,7 +48,7 @@ def extrair_dados_xml(files):
             for det in root.findall('.//det'):
                 prod = det.find('prod'); imp = det.find('imposto')
                 
-                # BUSCA PROFUNDA CST/CSOSN (Varre sub-tags ICMS00-90)
+                # BUSCA PROFUNDA CST/CSOSN (BLINDADO)
                 cst_ex = ""; orig_ex = ""
                 icms_node = imp.find('.//ICMS')
                 if icms_node is not None:
@@ -74,41 +73,35 @@ def extrair_dados_xml(files):
         except: continue
     return pd.DataFrame(dados_lista)
 
-def gerar_excel_final(df_ent, df_sai, ae_f, as_f, cod_cliente=""):
+def gerar_excel_final(df_ent, df_sai, ae_f, as_f, ge_f, gs_f, cod_cliente=""):
     base_f = buscar_base_no_github(cod_cliente); lista_erros = []
     try:
-        base_icms = pd.read_excel(base_f, sheet_name='ICMS')
-        base_icms['NCM_KEY'] = base_icms.iloc[:, 0].astype(str).str.zfill(8)
+        base_icms = pd.read_excel(base_f, sheet_name='ICMS'); base_icms['NCM_KEY'] = base_icms.iloc[:, 0].astype(str).str.zfill(8)
     except: base_icms = pd.DataFrame()
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         # --- O MANUAL MAIS COMPLETO DA FACE DA TERRA ---
         man_l = [
-            ["SENTINELA - MANUAL TÉCNICO DE AUDITORIA FISCAL COMPLETO"],
+            ["SENTINELA - MANUAL TÉCNICO DE AUDITORIA FISCAL"],
+            ["1. INTRODUÇÃO"],
+            ["Este manual descreve a inteligência por trás do motor de auditoria que cruza XMLs com a Base GitHub."],
             [""],
-            ["1. OBJETIVO DO SISTEMA"],
-            ["Este motor realiza o cruzamento de dados de XMLs com a Base Tributária GitHub para"],
-            ["identificar divergências de alíquotas, códigos CST e status de autenticidade (cancelamento)."],
-            [""],
-            ["2. EXTRAÇÃO E TRATAMENTO DE DADOS"],
-            ["- CST/CSOSN: Capturado via busca profunda em todas as variações de tags ICMS da SEFAZ."],
-            ["- CNPJ/CPF: Identificação de emitente e destinatário incluída em todas as abas."],
-            ["- ESCALA NUMÉRICA: Conversão inteligente que padroniza pontuações de alíquotas (12 = 12.0 = 12,0)."],
+            ["2. EXTRAÇÃO DE CST (BUSCA PROFUNDA)"],
+            ["O motor varre recursivamente tags como <ICMS00>, <ICMS60>, <ICMSSN101> etc, para capturar o CST/CSOSN."],
             [""],
             ["3. GLOSSÁRIO DE DIAGNÓSTICOS"],
-            ["- ✅ Correto: Informações do XML condizem 100% com a Base GitHub."],
-            ["- ❌ Divergente: Foi encontrada uma diferença de valor ou código tributário."],
-            ["- ❌ NCM Ausente: O item da nota não possui cadastro na Base da empresa."],
-            ["- ⚠️ N/Verif: O status da nota não pôde ser validado (arquivo de autenticidade ausente)."],
+            ["✅ Correto: Alíquota e CST do XML conferem exatamente com o que está na sua Base Tributária."],
+            ["❌ Divergente: Foi identificada uma diferença entre o que foi emitido e o cadastro da empresa."],
+            ["❌ NCM Ausente: O produto da nota não possui cadastro na sua planilha do GitHub."],
+            ["⚠️ N/Verif: Não foi possível validar o cancelamento (faltou subir o arquivo de Autenticidade)."],
             [""],
-            ["4. REGRAS DE CRUZAMENTO"],
-            ["- Situação Nota: Status real SEFAZ (Autorizado/Cancelado) cruzado pela Chave de Acesso."],
-            ["- ST na Entrada: Verificação histórica de retenção de ST nos XMLs de entrada carregados."],
-            ["- Complemento: Cálculo financeiro do imposto devido com base na divergência encontrada."],
-            [""],
-            ["5. RESUMO DE ERROS"],
-            ["A aba final funciona como um checklist operacional, listando apenas notas com problemas."]
+            ["4. REGRAS DE NEGÓCIO"],
+            ["- Status Nota: Cruzamento da Chave de Acesso com o relatório de Autenticidade do SEFAZ."],
+            ["- ST na Entrada: Verifica se o NCM possui histórico de entrada com retenção (CST 60)."],
+            ["- Complemento: Diferença financeira calculada sobre a Base de Cálculo quando a alíquota é menor que a Base."],
+            ["- CNPJ: Exibido em todas as abas para rastreio total de emitentes e destinatários."],
+            [""]
         ]
         pd.DataFrame(man_l).to_excel(writer, sheet_name='MANUAL', index=False, header=False)
         writer.sheets['MANUAL'].set_column('A:A', 110)
@@ -122,7 +115,6 @@ def gerar_excel_final(df_ent, df_sai, ae_f, as_f, cod_cliente=""):
         df_sai = cruzar(df_sai, as_f); df_ent = cruzar(df_ent, ae_f)
 
         if not df_sai.empty:
-            # ICMS AUDIT (Tags + Análise)
             df_i = df_sai.copy(); ncm_st = df_ent[(df_ent['CST-ICMS']=="60")]['NCM'].unique().tolist() if not df_ent.empty else []
             def audit_icms(row):
                 info = base_icms[base_icms['NCM_KEY'] == row['NCM']]
@@ -139,7 +131,6 @@ def gerar_excel_final(df_ent, df_sai, ae_f, as_f, cod_cliente=""):
             df_i[['Status Nota', 'Check ST Entrada', 'Diagnóstico ICMS']] = df_i.apply(audit_icms, axis=1)
             df_i.to_excel(writer, sheet_name='ICMS_AUDIT', index=False)
 
-        # RESUMO
         pd.DataFrame(lista_erros if lista_erros else [{"NF": "-", "Erro": "Tudo OK"}]).to_excel(writer, sheet_name='RESUMO_ERROS', index=False)
 
     return output.getvalue()
