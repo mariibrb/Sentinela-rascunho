@@ -5,7 +5,7 @@ from sentinela_core import extrair_dados_xml, gerar_excel_final
 # 1. Configuração da Página
 st.set_page_config(page_title="Sentinela Nascel", page_icon="🧡", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Estilo CSS Nascel
+# 2. Estilo CSS Nascel (Ajustado para reduzir área branca da logo)
 st.markdown("""
 <style>
     .stApp { background-color: #F7F7F7; }
@@ -13,6 +13,11 @@ st.markdown("""
     h1, h2, h3 { color: #FF6F00 !important; font-weight: 700; text-align: center; }
     .stButton>button { background-color: #FF6F00; color: white; border-radius: 20px; font-weight: bold; width: 100%; height: 50px; border: none; }
     .stFileUploader { border: 1px dashed #FF6F00; border-radius: 10px; }
+    
+    /* Reduz o espaçamento do bloco da imagem e o topo da página */
+    .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
+    [data-testid="stVerticalBlock"] > div:first-child { margin-top: -50px; }
+    [data-testid="stImage"] { margin-bottom: -30px; margin-top: -20px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -40,8 +45,8 @@ with st.sidebar:
     st.download_button("📥 Gabarito IPI", criar_gabarito(["NCM", "ALIQUOTA_IPI", "CST_IPI", "ENQUADRAMENTO"]), "gabarito_ipi.xlsx", use_container_width=True)
 
 # --- 4. TELA PRINCIPAL ---
-# Ajustado para 50% de redução na área da logo central
-c1, c2, c3 = st.columns([1.5, 1, 1.5]) # Coluna do meio (c2) menor para reduzir a logo
+# Mantive a proporção que você gostou, mas o CSS acima remove o "vazio"
+c1, c2, c3 = st.columns([1.5, 1, 1.5]) 
 with c2:
     if os.path.exists(".streamlit/Sentinela.png"):
         st.image(".streamlit/Sentinela.png", use_container_width=True)
