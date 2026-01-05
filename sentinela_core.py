@@ -51,18 +51,18 @@ def gerar_excel_final(df_xe, df_xs, b_unica, ae, as_f, ge, gs, cod_cliente=""):
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         if b_unica is not None:
             try:
-                # Carregando as abas
+                # Leitura das abas com as novas colunas
                 df_icms_b = pd.read_excel(b_unica, sheet_name='ICMS')
                 df_pc_b = pd.read_excel(b_unica, sheet_name='PIS_COFINS')
                 
                 def analisar(df_xml, aba_nome):
                     if df_xml.empty: return
-                    # Cruzamento com ICMS (A-G) e PIS/COFINS (3 colunas)
+                    # Cruzamento NCM -> Base
                     df_res = pd.merge(df_xml, df_icms_b, left_on='NCM_XML', right_on='NCM', how='left')
-                    df_res = pd.merge(df_res, df_pc_b, left_on='NCM_XML', right_on='NCM', how='left', suffixes=('', '_BASE'))
+                    df_res = pd.merge(df_res, df_pc_b, left_on='NCM_XML', right_on='NCM', how='left', suffixes=('', '_PC'))
                     
-                    # Exemplo de auditoria CST ICMS Interno
-                    df_res['CHECK_CST_ICMS_INT'] = np.where(df_res['CST_ICMS_XML'] == df_res['CST (INTERNA)'].astype(str).str.zfill(2), "✅", "❌")
+                    # Auditoria Básica de CST ICMS
+                    df_res['CHECK_CST_ICMS'] = np.where(df_res['CST_ICMS_XML'] == df_res['CST (INTERNA)'].astype(str).str.zfill(2), "✅", "❌")
                     df_res.to_excel(writer, sheet_name=aba_nome, index=False)
 
                 analisar(df_xe, 'AUDITORIA_ENTRADA')
