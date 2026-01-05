@@ -6,48 +6,56 @@ from sentinela_core import extrair_dados_xml, gerar_excel_final
 # 1. Configuração da Página
 st.set_page_config(page_title="Sentinela Nascel", page_icon="🧡", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Estilo CSS Nascel (Correção de Centralização Total)
+# 2. Estilo CSS Nascel (Centralização Forçada e Ajustes Finais)
 st.markdown("""
 <style>
     .stApp { background-color: #F7F7F7; }
     [data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 2px solid #FF6F00; }
     h1, h2, h3 { color: #FF6F00 !important; font-weight: 700; text-align: center; margin-bottom: 5px; }
     
-    /* Centralização das Logos na Sidebar */
+    /* Centralização Forçada de Logos na Sidebar */
     [data-testid="stSidebar"] [data-testid="stImage"] {
-        display: flex;
-        justify-content: center;
-        margin-left: auto;
-        margin-right: auto;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
     }
 
-    /* Centralização do Botão Gerar Relatório na tela principal */
+    /* Centralização Real do Botão Gerar Relatório */
     .stButton {
-        display: flex;
-        justify-content: center;
-        width: 100%;
+        text-align: center !important;
     }
-    .stButton>button {
-        background-color: #FF6F00; color: white !important;
-        border-radius: 25px !important; font-weight: bold; 
-        width: 300px !important; height: 50px; border: none;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    .stButton > button {
+        display: block !important;
+        margin: 0 auto !important;
+        background-color: #FF6F00 !important;
+        color: white !important;
+        border-radius: 25px !important;
+        font-weight: bold !important;
+        width: 320px !important;
+        height: 55px !important;
+        border: none !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
     }
-    .stButton>button:hover { background-color: #E65100; transform: scale(1.02); }
+    .stButton > button:hover { 
+        background-color: #E65100 !important; 
+        transform: scale(1.02) !important; 
+    }
     
-    /* Passos Delicados com Pesinhos Cinzas */
+    /* Estilo dos Passos com Pesinhos Cinzas */
     .passo-container {
         background-color: #FFFFFF;
-        padding: 8px 15px;
+        padding: 10px 15px;
         border-radius: 10px;
-        border-left: 4px solid #FF6F00;
+        border-left: 5px solid #FF6F00;
         margin: 10px auto 15px auto;
-        max-width: 650px;
+        max-width: 600px;
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         text-align: center;
     }
-    .passinho { color: #808080; font-size: 1.1rem; margin-right: 8px; }
-    .passo-texto { color: #FF6F00; font-size: 1rem; font-weight: 700; }
+    .passinho { color: #808080 !important; font-size: 1.2rem; margin-right: 10px; }
+    .passo-texto { color: #FF6F00; font-size: 1.1rem; font-weight: 700; }
 
     .stFileUploader section { background-color: #FFFFFF; border: 1px dashed #FF6F00 !important; border-radius: 12px !important; }
 </style>
@@ -67,13 +75,12 @@ def listar_empresas_no_github():
     except: pass
     return []
 
-# --- 3. SIDEBAR (Logos e Gabarito) ---
+# --- 3. SIDEBAR ---
 with st.sidebar:
     if os.path.exists(".streamlit/Sentinela.png"):
         st.image(".streamlit/Sentinela.png", use_container_width=True)
     
     if os.path.exists(".streamlit/nascel sem fundo.png"):
-        # Centralizado via CSS acima
         st.image(".streamlit/nascel sem fundo.png", width=140)
     
     st.markdown("---")
@@ -103,7 +110,7 @@ with st.sidebar:
     if st.file_uploader("Upload da Base", type=['xlsx'], key='base_construcao'): 
         st.error("🚧 CAMPO EM CONSTRUÇÃO")
 
-# --- 4. TELA PRINCIPAL (FLUXO GUIADO) ---
+# --- 4. TELA PRINCIPAL ---
 
 # PASSO 1
 st.markdown("<div class='passo-container'><span class='passinho'>👣</span><span class='passo-texto'>PASSO 1: Selecione o cliente</span></div>", unsafe_allow_html=True)
@@ -117,23 +124,23 @@ if cod_cliente:
     c_e, c_s = st.columns(2, gap="medium")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xe_v22")
-        ge = st.file_uploader("Gerencial", type=['csv'], key="ge_v22")
-        ae = st.file_uploader("Autenticidade", type=['xlsx'], key="ae_v22")
+        xe = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xe_v23")
+        ge = st.file_uploader("Gerencial", type=['csv'], key="ge_v23")
+        ae = st.file_uploader("Autenticidade", type=['xlsx'], key="ae_v23")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xs_v22")
-        gs = st.file_uploader("Gerencial", type=['csv'], key="gs_v22")
-        as_f = st.file_uploader("Autenticidade", type=['xlsx'], key="as_v22")
+        xs = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xs_v23")
+        gs = st.file_uploader("Gerencial", type=['csv'], key="gs_v23")
+        as_f = st.file_uploader("Autenticidade", type=['xlsx'], key="as_v23")
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Botão Centralizado com largura fixa
-    if st.button("🚀 GERAR RELATÓRIO", key="btn_gerar"):
-        with st.spinner("🧡 Processando..."):
+    # Executar e baixar
+    if st.button("🚀 GERAR RELATÓRIO"):
+        with st.spinner("🧡 O Sentinela está cruzando os dados..."):
             try:
                 df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
                 relat = gerar_excel_final(df_xe, df_xs, None, ae, as_f, ge, gs, cod_cliente)
-                st.success("Relatório gerado com sucesso! 🧡")
-                st.download_button("💾 BAIXAR AGORA", relat, f"Relatorio_{cod_cliente}.xlsx", use_container_width=True)
+                st.success("Relatório pronto! 🧡")
+                st.download_button("💾 BAIXAR RELATÓRIO", relat, f"Sentinela_{cod_cliente}.xlsx", use_container_width=True)
             except Exception as e: st.error(f"Erro: {e}")
