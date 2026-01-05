@@ -6,55 +6,51 @@ from sentinela_core import extrair_dados_xml, gerar_excel_final
 # 1. Configuração da Página
 st.set_page_config(page_title="Sentinela Nascel", page_icon="🧡", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Estilo CSS Nascel (Centralização Forçada e Ajustes Finais)
+# 2. Estilo CSS Nascel (Correção Definitiva de Alinhamento)
 st.markdown("""
 <style>
     .stApp { background-color: #F7F7F7; }
     [data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 2px solid #FF6F00; }
-    h1, h2, h3 { color: #FF6F00 !important; font-weight: 700; text-align: center; margin-bottom: 5px; }
     
-    /* Centralização Forçada de Logos na Sidebar */
+    /* Centralização das Logos na Sidebar */
     [data-testid="stSidebar"] [data-testid="stImage"] {
         display: flex !important;
         justify-content: center !important;
-        align-items: center !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
+        margin: 0 auto !important;
     }
+    
+    /* Forçar centralização do Título e Passos */
+    h1, h2, h3 { color: #FF6F00 !important; font-weight: 700; text-align: center; }
 
-    /* Centralização Real do Botão Gerar Relatório */
+    /* Centralização do Botão Gerar Relatório */
     .stButton {
-        text-align: center !important;
+        display: flex !important;
+        justify-content: center !important;
+        width: 100% !important;
+        margin-top: 20px !important;
     }
     .stButton > button {
-        display: block !important;
-        margin: 0 auto !important;
         background-color: #FF6F00 !important;
         color: white !important;
         border-radius: 25px !important;
         font-weight: bold !important;
-        width: 320px !important;
-        height: 55px !important;
+        width: 280px !important;
+        height: 50px !important;
         border: none !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
     }
-    .stButton > button:hover { 
-        background-color: #E65100 !important; 
-        transform: scale(1.02) !important; 
-    }
-    
+
     /* Estilo dos Passos com Pesinhos Cinzas */
     .passo-container {
         background-color: #FFFFFF;
         padding: 10px 15px;
         border-radius: 10px;
         border-left: 5px solid #FF6F00;
-        margin: 10px auto 15px auto;
+        margin: 10px auto 20px auto;
         max-width: 600px;
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         text-align: center;
     }
-    .passinho { color: #808080 !important; font-size: 1.2rem; margin-right: 10px; }
+    .passinho { color: #808080 !important; font-size: 1.2rem; margin-right: 8px; }
     .passo-texto { color: #FF6F00; font-size: 1.1rem; font-weight: 700; }
 
     .stFileUploader section { background-color: #FFFFFF; border: 1px dashed #FF6F00 !important; border-radius: 12px !important; }
@@ -124,23 +120,23 @@ if cod_cliente:
     c_e, c_s = st.columns(2, gap="medium")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xe_v23")
-        ge = st.file_uploader("Gerencial", type=['csv'], key="ge_v23")
-        ae = st.file_uploader("Autenticidade", type=['xlsx'], key="ae_v23")
+        xe = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xe_v24")
+        ge = st.file_uploader("Gerencial", type=['csv'], key="ge_v24")
+        ae = st.file_uploader("Autenticidade", type=['xlsx'], key="ae_v24")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xs_v23")
-        gs = st.file_uploader("Gerencial", type=['csv'], key="gs_v23")
-        as_f = st.file_uploader("Autenticidade", type=['xlsx'], key="as_v23")
+        xs = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xs_v24")
+        gs = st.file_uploader("Gerencial", type=['csv'], key="gs_v24")
+        as_f = st.file_uploader("Autenticidade", type=['xlsx'], key="as_v24")
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Executar e baixar
+    # Executar centralizado
     if st.button("🚀 GERAR RELATÓRIO"):
-        with st.spinner("🧡 O Sentinela está cruzando os dados..."):
+        with st.spinner("🧡 O Sentinela está auditando..."):
             try:
                 df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
                 relat = gerar_excel_final(df_xe, df_xs, None, ae, as_f, ge, gs, cod_cliente)
                 st.success("Relatório pronto! 🧡")
-                st.download_button("💾 BAIXAR RELATÓRIO", relat, f"Sentinela_{cod_cliente}.xlsx", use_container_width=True)
+                st.download_button("💾 BAIXAR AGORA", relat, f"Sentinela_{cod_cliente}.xlsx", use_container_width=True)
             except Exception as e: st.error(f"Erro: {e}")
