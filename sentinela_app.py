@@ -16,11 +16,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. SIDEBAR (GABARITOS RESTAURADOS) ---
+# --- 3. SIDEBAR (Gabaritos e Bases) ---
 with st.sidebar:
-    logo_path = ".streamlit/nascel sem fundo.png"
-    if os.path.exists(logo_path):
-        st.image(logo_path, use_container_width=True)
+    if os.path.exists(".streamlit/nascel sem fundo.png"):
+        st.image(".streamlit/nascel sem fundo.png", use_container_width=True)
     
     st.markdown("---")
     st.subheader("🔄 Bases de Referência")
@@ -29,24 +28,16 @@ with st.sidebar:
     
     st.markdown("---")
     st.subheader("📥 Gabaritos")
-    # Criando um arquivo de exemplo para o Gabarito
-    buffer_gabarito = io.BytesIO()
-    pd.DataFrame(columns=["NCM", "ALIQUOTA_PIS", "ALIQUOTA_COFINS", "CST"]).to_excel(buffer_gabarito, index=False)
-    
-    st.download_button(
-        label="📥 Gabarito PIS/COFINS",
-        data=buffer_gabarito.getvalue(),
-        file_name="gabarito_pis_cofins.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
-    )
+    # Gerador de arquivo de Gabarito para download
+    g_buf = io.BytesIO()
+    pd.DataFrame(columns=["NCM", "ALIQUOTA_PIS", "ALIQUOTA_COFINS", "CST"]).to_excel(g_buf, index=False)
+    st.download_button("📥 Gabarito PIS/COFINS", g_buf.getvalue(), "gabarito_fiscal.xlsx", use_container_width=True)
 
-# --- 4. TELA PRINCIPAL (GERENCIAIS RESTAURADOS) ---
+# --- 4. TELA PRINCIPAL (Fluxos e Gerenciais) ---
 c1, c2, c3 = st.columns([1, 2, 1])
 with c2:
-    soldado = ".streamlit/Sentinela.png"
-    if os.path.exists(soldado):
-        st.image(soldado, use_container_width=True)
+    if os.path.exists(".streamlit/Sentinela.png"):
+        st.image(".streamlit/Sentinela.png", use_container_width=True)
     else:
         st.title("🚀 SENTINELA NASCEL 🧡")
 
@@ -56,15 +47,15 @@ col_e, col_s = st.columns(2, gap="large")
 
 with col_e:
     st.subheader("📥 FLUXO ENTRADAS")
-    xe = st.file_uploader("📂 XMLs de Entrada", type='xml', accept_multiple_files=True, key="xe_in")
-    ge = st.file_uploader("📊 Gerencial Entrada (CSV)", type=['csv'], key="ge_in")
-    ae = st.file_uploader("🔍 Autenticidade Entrada (XLSX)", type=['xlsx'], key="ae_in")
+    xe = st.file_uploader("📂 XMLs de Entrada", type='xml', accept_multiple_files=True, key="xe_f")
+    ge = st.file_uploader("📊 Gerencial Entrada (CSV)", type=['csv'], key="ge_f")
+    ae = st.file_uploader("🔍 Autenticidade Entrada (XLSX)", type=['xlsx'], key="ae_f")
 
 with col_s:
     st.subheader("📤 FLUXO SAÍDAS")
-    xs = st.file_uploader("📂 XMLs de Saída", type='xml', accept_multiple_files=True, key="xs_in")
-    gs = st.file_uploader("📊 Gerencial Saída (CSV)", type=['csv'], key="gs_in")
-    as_f = st.file_uploader("🔍 Autenticidade Saída (XLSX)", type=['xlsx'], key="as_in")
+    xs = st.file_uploader("📂 XMLs de Saída", type='xml', accept_multiple_files=True, key="xs_f")
+    gs = st.file_uploader("📊 Gerencial Saída (CSV)", type=['csv'], key="gs_f")
+    as_f = st.file_uploader("🔍 Autenticidade Saída (XLSX)", type=['xlsx'], key="as_f")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -77,4 +68,4 @@ if st.button("🚀 EXECUTAR AUDITORIA COMPLETA", type="primary"):
             st.success("Auditoria concluída com sucesso! 🧡")
             st.download_button("💾 BAIXAR RELATÓRIO FINAL", relat, "Auditoria_Sentinela.xlsx", use_container_width=True)
         except Exception as e:
-            st.error(f"Erro no processamento: {e}")
+            st.error(f"Ocorreu um erro: {e}")
