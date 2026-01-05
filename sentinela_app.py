@@ -6,7 +6,7 @@ from sentinela_core import extrair_dados_xml, gerar_excel_final
 # 1. Configuração da Página
 st.set_page_config(page_title="Sentinela - Auditoria Fiscal", page_icon="🧡", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Estilo CSS Sentinela (Laranja Restaurado e Blindado)
+# 2. Estilo CSS Sentinela (Laranja Restaurado)
 st.markdown("""
 <style>
     header {visibility: hidden !important;}
@@ -74,20 +74,20 @@ if cod_cliente:
     c_e, c_s = st.columns(2, gap="large")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_v103")
-        ge = st.file_uploader("Gerencial Entrada", type=['csv'], key="ge_v103")
-        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_v103")
+        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_v107")
+        ge = st.file_uploader("Gerencial Entrada", type=['csv'], key="ge_v107")
+        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_v107")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_v103")
-        gs = st.file_uploader("Gerencial Saída", type=['csv'], key="gs_v103")
-        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_v103")
+        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_v107")
+        gs = st.file_uploader("Gerencial Saída", type=['csv'], key="gs_v107")
+        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_v107")
 
     if st.button("🚀 GERAR RELATÓRIO"):
-        with st.spinner("🧡 Sentinela está processando..."):
+        with st.spinner("🧡 Sentinela processando motor maximalista total..."):
             try:
                 df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
                 relat = gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente)
-                st.success("Auditoria Concluída! 🧡")
+                st.success("Auditoria COMPLETA Concluída! 🧡")
                 st.download_button("💾 BAIXAR AGORA", relat, f"Sentinela_{cod_cliente}.xlsx", use_container_width=True)
             except Exception as e: st.error(f"Erro Crítico: {e}")
