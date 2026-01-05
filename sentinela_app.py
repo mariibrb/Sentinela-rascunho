@@ -6,7 +6,7 @@ from sentinela_core import extrair_dados_xml, gerar_excel_final
 # 1. Configuração da Página
 st.set_page_config(page_title="Sentinela - Auditoria Fiscal", page_icon="🧡", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Estilo CSS Sentinela (BOTÃO FULL WIDTH CORRIGIDO)
+# 2. Estilo CSS Sentinela (Restauração do Botão Centralizado e Pesinhos Cinzas)
 st.markdown("""
 <style>
     .stApp { background-color: #F7F7F7; }
@@ -20,39 +20,33 @@ st.markdown("""
         width: 100% !important;
     }
 
-    /* FORÇAR BOTÃO A OCUPAR TODA A LARGURA INFERIOR */
-    div.stButton {
-        width: 100%;
-        display: flex;
-        justify-content: center;
+    /* Restauração do Botão Centralizado (Estilo que você gostou) */
+    .stButton {
+        display: flex !important;
+        justify-content: center !important;
+        width: 100% !important;
+        margin-top: 20px !important;
     }
     
-    div.stButton > button {
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 100% !important;
-        height: 60px !important;
+    .stButton > button {
         background-color: #FF6F00 !important;
         color: white !important;
-        border-radius: 12px !important;
+        border-radius: 25px !important;
         font-weight: bold !important;
-        font-size: 1.3rem !important;
-        margin-top: 30px !important;
+        width: 300px !important; /* Tamanho fixo para voltar ao visual anterior */
+        height: 50px !important;
         border: none !important;
-        box-shadow: 0 4px 15px rgba(255, 111, 0, 0.3) !important;
-        transition: 0.3s;
     }
     
-    div.stButton > button:hover { 
+    .stButton > button:hover { 
         background-color: #E65100 !important; 
-        box-shadow: 0 6px 20px rgba(255, 111, 0, 0.5) !important;
-        transform: translateY(-2px);
+        transform: scale(1.02) !important; 
     }
     
-    /* Passos com Pesinhos Cinzas */
+    /* Passos Delicados com Pesinhos Cinzas */
     .passo-container {
         background-color: #FFFFFF;
-        padding: 10px 15px;
+        padding: 8px 15px;
         border-radius: 10px;
         border-left: 5px solid #FF6F00;
         margin: 10px auto 15px auto;
@@ -128,21 +122,9 @@ if cod_cliente:
     c_ent, c_sai = st.columns(2, gap="large")
     with c_ent:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("Notas Fiscais (XML)", type='xml', accept_multiple_files=True, key="xe_v29")
-        ge = st.file_uploader("Relatório Gerencial (CSV)", type=['csv'], key="ge_v29")
-        ae = st.file_uploader("Protocolos Autenticidade", type=['xlsx'], key="ae_v29")
+        xe = st.file_uploader("Notas Fiscais (XML)", type='xml', accept_multiple_files=True, key="xe_v30")
+        ge = st.file_uploader("Relatório Gerencial (CSV)", type=['csv'], key="ge_v30")
+        ae = st.file_uploader("Protocolos Autenticidade", type=['xlsx'], key="ae_v30")
     with c_sai:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("Notas Fiscais (XML)", type='xml', accept_multiple_files=True, key="xs_v29")
-        gs = st.file_uploader("Relatório Gerencial (CSV)", type=['csv'], key="gs_v29")
-        as_f = st.file_uploader("Protocolos Autenticidade", type=['xlsx'], key="as_v29")
-
-    # BOTÃO LARGO (FULL WIDTH)
-    if st.button("🚀 GERAR RELATÓRIO"):
-        with st.spinner("🧡 O Sentinela está auditando os dados..."):
-            try:
-                df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
-                relat = gerar_excel_final(df_xe, df_xs, None, ae, as_f, ge, gs, cod_cliente)
-                st.success("Auditoria finalizada com sucesso! 🧡")
-                st.download_button("💾 BAIXAR AGORA", relat, f"Auditoria_{cod_cliente}.xlsx", use_container_width=True)
-            except Exception as e: st.error(f"Erro no processamento: {e}")
+        xs = st.file_uploader("Notas Fiscais (XML)", type='
