@@ -6,7 +6,7 @@ from sentinela_core import extrair_dados_xml, gerar_excel_final
 # 1. Configuração da Página
 st.set_page_config(page_title="Sentinela - Auditoria Fiscal", page_icon="🧡", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Estilo CSS Sentinela (Limpo e Funcional)
+# 2. Estilo CSS Sentinela
 st.markdown("""
 <style>
     header {visibility: hidden !important;}
@@ -14,12 +14,10 @@ st.markdown("""
     .stApp { background-color: #F7F7F7; }
     [data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 2px solid #FF6F00; }
     h1, h2, h3 { color: #FF6F00 !important; font-weight: 700; text-align: center; }
-    
     .stButton > button {
         background-color: #FF6F00 !important; color: white !important; border-radius: 25px !important;
-        font-weight: bold !important; width: 100% !important; height: 50px !important; border: none !important;
+        font-weight: bold !important; width: 300px !important; height: 50px !important; border: none !important;
     }
-    
     .passo-container {
         background-color: #FFFFFF; padding: 15px; border-radius: 10px; border-left: 5px solid #FF6F00;
         margin-bottom: 20px; text-align: center; box-shadow: 0px 2px 5px rgba(0,0,0,0.05);
@@ -47,7 +45,6 @@ def listar_empresas_no_github():
 with st.sidebar:
     try: st.image(".streamlit/Sentinela.png", use_container_width=True)
     except: st.title("SENTINELA 🧡")
-    
     st.markdown("---")
     def criar_gabarito():
         output = io.BytesIO()
@@ -63,33 +60,29 @@ with st.sidebar:
 
 # --- TELA PRINCIPAL ---
 st.markdown("<div class='passo-container'><span class='passo-texto'>👣 PASSO 1: Empresa</span></div>", unsafe_allow_html=True)
-empresas = listar_empresas_no_github()
-cod_cliente = st.selectbox("Selecione a empresa cadastrada:", [""] + empresas)
+cod_cliente = st.selectbox("Selecione a empresa cadastrada:", [""] + listar_empresas_no_github())
 
 if cod_cliente:
     st.markdown("<div class='passo-container'><span class='passo-texto'>👣 PASSO 2: Documentos</span></div>", unsafe_allow_html=True)
-    
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs de Saída", type='xml', accept_multiple_files=True, key="xs_v69")
-        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx'], key="as_v69")
-    
+        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_v70")
+        gs = st.file_uploader("Gerencial Saída (CSV)", type=['csv'], key="gs_v70")
+        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx'], key="as_v70")
     with c2:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs de Entrada", type='xml', accept_multiple_files=True, key="xe_v69")
-        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx'], key="ae_v69")
+        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_v70")
+        ge = st.file_uploader("Gerencial Entrada (CSV)", type=['csv'], key="ge_v70")
+        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx'], key="ae_v70")
 
     if st.button("🚀 EXECUTAR AUDITORIA"):
-        if not xs:
-            st.warning("Carregue ao menos os XMLs de Saída.")
+        if not xs: st.warning("Carregue ao menos os XMLs de Saída.")
         else:
-            with st.spinner("🧡 Sentinela auditando..."):
+            with st.spinner("🧡 Sentinela processando tudo..."):
                 try:
-                    df_xe = extrair_dados_xml(xe)
-                    df_xs = extrair_dados_xml(xs)
-                    relat = gerar_excel_final(df_xe, df_xs, ae, as_f, cod_cliente)
+                    df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
+                    relat = gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente)
                     st.success("Auditoria Concluída!")
                     st.download_button("💾 BAIXAR RELATÓRIO", relat, f"Sentinela_{cod_cliente}.xlsx", use_container_width=True)
-                except Exception as e:
-                    st.error(f"Erro: {str(e)}")
+                except Exception as e: st.error(f"Erro: {e}")
