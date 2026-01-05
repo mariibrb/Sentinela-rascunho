@@ -6,7 +6,7 @@ from sentinela_core import extrair_dados_xml, gerar_excel_final
 # 1. Configuração da Página
 st.set_page_config(page_title="Sentinela - Auditoria Fiscal", page_icon="🧡", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Estilo CSS Sentinela (Versão Blindada)
+# 2. Estilo CSS Sentinela (Versão Final Aprovada)
 st.markdown("""
 <style>
     header {visibility: hidden !important;}
@@ -16,12 +16,10 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 2px solid #FF6F00; }
     h1, h2, h3 { color: #FF6F00 !important; font-weight: 700; text-align: center; }
 
-    /* Centralização da Logo Sentinela na Sidebar */
     [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:has(img) {
         display: flex !important; justify-content: center !important; width: 100% !important;
     }
 
-    /* Botão de Ação Centralizado */
     .stButton { display: flex !important; justify-content: center !important; width: 100% !important; margin-top: 20px !important; }
     .stButton > button {
         background-color: #FF6F00 !important; color: white !important; border-radius: 25px !important;
@@ -29,7 +27,6 @@ st.markdown("""
     }
     .stButton > button:hover { background-color: #E65100 !important; transform: scale(1.02) !important; }
     
-    /* Passos Delicados com Pesinhos Cinzas */
     .passo-container {
         background-color: #FFFFFF; padding: 10px 15px; border-radius: 10px; border-left: 5px solid #FF6F00;
         margin: 10px auto 15px auto; max-width: 600px; text-align: center;
@@ -60,16 +57,28 @@ with st.sidebar:
     if os.path.exists(".streamlit/Sentinela.png"):
         st.image(".streamlit/Sentinela.png", use_container_width=True)
     st.markdown("---")
+    st.subheader("📥 Materiais de Apoio")
+    
     def criar_gabarito():
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            wb = writer.book
+            # Cores Restauradas
+            f_ncm = wb.add_format({'bg_color': '#444444', 'font_color': 'white', 'bold': True, 'border': 1})
+            f_lar_e = wb.add_format({'bg_color': '#FF6F00', 'font_color': 'white', 'bold': True, 'border': 1})
+            f_lar_c = wb.add_format({'bg_color': '#FFB74D', 'bold': True, 'border': 1})
+
             cols_icms = ["NCM", "CST (INTERNA)", "ALIQ (INTERNA)", "CST (ESTADUAL)"]
             pd.DataFrame(columns=cols_icms).to_excel(writer, sheet_name='ICMS', index=False)
-            cols_ipi = ["NCM_TIPI", "EX", "DESCRIÇÃO", "ALÍQUOTA (%)"]
-            pd.DataFrame(columns=cols_ipi).to_excel(writer, sheet_name='IPI', index=False)
+            for c, v in enumerate(cols_icms):
+                writer.sheets['ICMS'].write(0, c, v, f_ncm if c == 0 else f_lar_e)
+
             cols_pc = ["NCM", "CST Entrada", "CST Saída"]
             pd.DataFrame(columns=cols_pc).to_excel(writer, sheet_name='PIS_COFINS', index=False)
+            for c, v in enumerate(cols_pc):
+                writer.sheets['PIS_COFINS'].write(0, c, v, f_ncm if c == 0 else f_lar_c)
         return output.getvalue()
+
     st.download_button("📥 Baixar Gabarito", criar_gabarito(), "gabarito_base.xlsx", use_container_width=True)
 
 # --- 4. TELA PRINCIPAL ---
@@ -83,20 +92,21 @@ if cod_cliente:
     c_e, c_s = st.columns(2, gap="large")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xe_v37")
-        ge = st.file_uploader("Gerencial", type=['csv'], key="ge_v37")
-        ae = st.file_uploader("Autenticidade", type=['xlsx'], key="ae_v37")
+        xe = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xe_v39")
+        ge = st.file_uploader("Gerencial", type=['csv'], key="ge_v39")
+        ae = st.file_uploader("Autenticidade", type=['xlsx'], key="ae_v39")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xs_v37")
-        gs = st.file_uploader("Gerencial", type=['csv'], key="gs_v37")
-        as_f = st.file_uploader("Autenticidade", type=['xlsx'], key="as_v37")
+        xs = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xs_v39")
+        gs = st.file_uploader("Gerencial", type=['csv'], key="gs_v39")
+        as_f = st.file_uploader("Autenticidade", type=['xlsx'], key="as_v39")
 
     if st.button("🚀 GERAR RELATÓRIO"):
-        with st.spinner("🧡 O Sentinela está auditando..."):
+        with st.spinner("🧡 O Sentinela está auditando os dados..."):
             try:
-                df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
-                relat = gerar_excel_final(df_xe, df_xs, None, ae, as_f, ge, gs, cod_cliente)
+                df_xe = extrair_dados_xml(xe)
+                df_xs = extrair_dados_xml(xs)
+                relat = gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente)
                 st.success("Auditoria finalizada com sucesso! 🧡")
-                st.download_button("💾 BAIXAR AGORA", relat, f"Relatorio_{cod_cliente}.xlsx", use_container_width=True)
-            except Exception as e: st.error(f"Erro: {e}")
+                st.download_button("💾 BAIXAR AGORA", relat, f"Sentinela_{cod_cliente}.xlsx", use_container_width=True)
+            except Exception as e: st.error(f"Erro no processamento: {e}")
