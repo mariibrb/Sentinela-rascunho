@@ -6,34 +6,36 @@ from sentinela_core import extrair_dados_xml, gerar_excel_final
 # 1. Configuração da Página
 st.set_page_config(page_title="Sentinela Nascel", page_icon="🧡", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Estilo CSS Nascel
+# 2. Estilo CSS Nascel (Correção de Centralização Total)
 st.markdown("""
 <style>
     .stApp { background-color: #F7F7F7; }
     [data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 2px solid #FF6F00; }
     h1, h2, h3 { color: #FF6F00 !important; font-weight: 700; text-align: center; margin-bottom: 5px; }
     
-    /* Centralização de Imagens na Sidebar */
+    /* Centralização das Logos na Sidebar */
     [data-testid="stSidebar"] [data-testid="stImage"] {
-        display: block;
+        display: flex;
+        justify-content: center;
         margin-left: auto;
         margin-right: auto;
-        text-align: center;
     }
 
-    /* Estilo do Botão e Centralização */
+    /* Centralização do Botão Gerar Relatório na tela principal */
     .stButton {
         display: flex;
         justify-content: center;
+        width: 100%;
     }
     .stButton>button {
         background-color: #FF6F00; color: white !important;
         border-radius: 25px !important; font-weight: bold; 
-        width: 300px; height: 50px; border: none;
+        width: 300px !important; height: 50px; border: none;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
     .stButton>button:hover { background-color: #E65100; transform: scale(1.02); }
     
-    /* Passos Delicados */
+    /* Passos Delicados com Pesinhos Cinzas */
     .passo-container {
         background-color: #FFFFFF;
         padding: 8px 15px;
@@ -65,12 +67,13 @@ def listar_empresas_no_github():
     except: pass
     return []
 
-# --- 3. SIDEBAR ---
+# --- 3. SIDEBAR (Logos e Gabarito) ---
 with st.sidebar:
     if os.path.exists(".streamlit/Sentinela.png"):
         st.image(".streamlit/Sentinela.png", use_container_width=True)
     
     if os.path.exists(".streamlit/nascel sem fundo.png"):
+        # Centralizado via CSS acima
         st.image(".streamlit/nascel sem fundo.png", width=140)
     
     st.markdown("---")
@@ -100,7 +103,7 @@ with st.sidebar:
     if st.file_uploader("Upload da Base", type=['xlsx'], key='base_construcao'): 
         st.error("🚧 CAMPO EM CONSTRUÇÃO")
 
-# --- 4. TELA PRINCIPAL ---
+# --- 4. TELA PRINCIPAL (FLUXO GUIADO) ---
 
 # PASSO 1
 st.markdown("<div class='passo-container'><span class='passinho'>👣</span><span class='passo-texto'>PASSO 1: Selecione o cliente</span></div>", unsafe_allow_html=True)
@@ -114,19 +117,19 @@ if cod_cliente:
     c_e, c_s = st.columns(2, gap="medium")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xe_v21")
-        ge = st.file_uploader("Gerencial", type=['csv'], key="ge_v21")
-        ae = st.file_uploader("Autenticidade", type=['xlsx'], key="ae_v21")
+        xe = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xe_v22")
+        ge = st.file_uploader("Gerencial", type=['csv'], key="ge_v22")
+        ae = st.file_uploader("Autenticidade", type=['xlsx'], key="ae_v22")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xs_v21")
-        gs = st.file_uploader("Gerencial", type=['csv'], key="gs_v21")
-        as_f = st.file_uploader("Autenticidade", type=['xlsx'], key="as_v21")
+        xs = st.file_uploader("XMLs", type='xml', accept_multiple_files=True, key="xs_v22")
+        gs = st.file_uploader("Gerencial", type=['csv'], key="gs_v22")
+        as_f = st.file_uploader("Autenticidade", type=['xlsx'], key="as_v22")
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Botão de Ação Centralizado e Renomeado
-    if st.button("🚀 GERAR RELATÓRIO", type="primary"):
+    # Botão Centralizado com largura fixa
+    if st.button("🚀 GERAR RELATÓRIO", key="btn_gerar"):
         with st.spinner("🧡 Processando..."):
             try:
                 df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
