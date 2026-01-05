@@ -27,7 +27,6 @@ st.markdown("""
         background-color: #FFFFFF; padding: 10px 15px; border-radius: 10px; border-left: 5px solid #FF6F00;
         margin: 10px auto 15px auto; max-width: 600px; text-align: center;
     }
-    .passinho { color: #808080 !important; font-size: 1.2rem; margin-right: 10px; }
     .passo-texto { color: #FF6F00; font-size: 1.1rem; font-weight: 700; }
 </style>
 """, unsafe_allow_html=True)
@@ -53,36 +52,43 @@ with st.sidebar:
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             wb = writer.book
-            f_ncm = wb.add_format({'bg_color': '#444444', 'font_color': 'white', 'bold': True})
-            f_lar = wb.add_format({'bg_color': '#FF6F00', 'font_color': 'white', 'bold': True})
-            for s, c_l in [('ICMS', ["NCM", "CST (INTERNA)", "ALIQ (INTERNA)"]), ('PIS_COFINS', ["NCM", "CST Entrada", "CST Saída"]), ('IPI', ["NCM", "CST_IPI", "ALQ_IPI"])]:
-                pd.DataFrame(columns=c_l).to_excel(writer, sheet_name=s, index=False)
-                for c, v in enumerate(c_l): writer.sheets[s].write(0, c, v, f_ncm if c == 0 else f_lar)
+            f_header = wb.add_format({'bg_color': '#7F7F7F', 'font_color': '#CCECFF', 'bold': True, 'border': 1})
+            
+            # ABA ICMS
+            pd.DataFrame(columns=["NCM", "CST_BASE", "ALÍQUOTA"]).to_excel(writer, sheet_name='ICMS', index=False)
+            for c, v in enumerate(["NCM", "CST_BASE", "ALÍQUOTA"]): writer.sheets['ICMS'].write(0, c, v, f_header)
+
+            # ABA PIS_COFINS
+            pd.DataFrame(columns=["NCM", "DESCRIÇÃO", "CST_BASE"]).to_excel(writer, sheet_name='PIS_COFINS', index=False)
+            for c, v in enumerate(["NCM", "DESCRIÇÃO", "CST_BASE"]): writer.sheets['PIS_COFINS'].write(0, c, v, f_header)
+
+            # ABA IPI (RESTAURADO CONFORME IMAGEM)
+            pd.DataFrame(columns=["NCM_TIPI", "EX", "DESCRIÇÃO", "ALÍQUOTA"]).to_excel(writer, sheet_name='IPI', index=False)
+            for c, v in enumerate(["NCM_TIPI", "EX", "DESCRIÇÃO", "ALÍQUOTA"]): writer.sheets['IPI'].write(0, c, v, f_header)
+            
         return output.getvalue()
-    st.download_button("📥 Baixar Gabarito", criar_gabarito(), "gabarito_base.xlsx", use_container_width=True)
+    st.download_button("📥 Baixar Gabarito", criar_gabarito(), "gabarito_sentinela.xlsx", use_container_width=True)
 
 st.markdown("<div class='passo-container'><span class='passo-texto'>👣 PASSO 1: Selecione a empresa cadastrada</span></div>", unsafe_allow_html=True)
 cod_cliente = st.selectbox("Empresa:", [""] + listar_empresas_no_repositorio(), label_visibility="collapsed")
 
 if cod_cliente:
-    st.markdown("<div class='passo-container'><span class='passinho'>👣</span><span class='passo-texto'>PASSO 2: Carregar Documentos</span></div>", unsafe_allow_html=True)
+    st.markdown("<div class='passo-container'><span class='passo-texto'>👣 PASSO 2: Carregar Documentos</span></div>", unsafe_allow_html=True)
     c_e, c_s = st.columns(2, gap="large")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_v88")
-        ge = st.file_uploader("Gerencial Entrada", type=['csv'], key="ge_v88")
-        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_v88")
+        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_v93")
+        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_v93")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_v88")
-        gs = st.file_uploader("Gerencial Saída", type=['csv'], key="gs_v88")
-        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_v88")
+        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_v93")
+        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_v93")
 
     if st.button("🚀 GERAR RELATÓRIO"):
-        with st.spinner("🧡 Sentinela auditando situação e tributação..."):
+        with st.spinner("🧡 Sentinela processando Inteligência Fiscal Maximalista..."):
             try:
                 df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
-                relat = gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente)
-                st.success("Auditoria Concluída! 🧡")
+                relat = gerar_excel_final(df_xe, df_xs, ae, as_f, cod_cliente)
+                st.success("Auditoria Concluída com Sucesso! 🧡")
                 st.download_button("💾 BAIXAR AGORA", relat, f"Sentinela_{cod_cliente}.xlsx", use_container_width=True)
             except Exception as e: st.error(f"Erro Crítico: {e}")
