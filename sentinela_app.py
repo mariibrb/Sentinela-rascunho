@@ -6,7 +6,7 @@ from sentinela_core import extrair_dados_xml, gerar_excel_final
 # 1. Configuração da Página
 st.set_page_config(page_title="Sentinela - Auditoria Fiscal", page_icon="🧡", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Estilo CSS Sentinela (Laranja Restaurado)
+# 2. Estilo CSS Sentinela (Identidade Laranja Blindada)
 st.markdown("""
 <style>
     header {visibility: hidden !important;}
@@ -54,15 +54,9 @@ with st.sidebar:
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             wb = writer.book
             f_header = wb.add_format({'bg_color': '#7F7F7F', 'font_color': '#CCECFF', 'bold': True, 'border': 1})
-            # ICMS
             pd.DataFrame(columns=["NCM", "CST (INTERNA)", "ALIQ (INTERNA)", "CST (ESTADUAL)"]).to_excel(writer, sheet_name='ICMS', index=False)
-            for c, v in enumerate(["NCM", "CST (INTERNA)", "ALIQ (INTERNA)", "CST (ESTADUAL)"]): writer.sheets['ICMS'].write(0, c, v, f_header)
-            # PIS_COFINS
             pd.DataFrame(columns=["NCM", "CST Entrada", "CST Saída"]).to_excel(writer, sheet_name='PIS_COFINS', index=False)
-            for c, v in enumerate(["NCM", "CST Entrada", "CST Saída"]): writer.sheets['PIS_COFINS'].write(0, c, v, f_header)
-            # IPI
             pd.DataFrame(columns=["NCM_TIPI", "EX", "DESCRIÇÃO", "ALÍQUOTA (%)"]).to_excel(writer, sheet_name='IPI', index=False)
-            for c, v in enumerate(["NCM_TIPI", "EX", "DESCRIÇÃO", "ALÍQUOTA (%)"]): writer.sheets['IPI'].write(0, c, v, f_header)
         return output.getvalue()
     st.download_button("📥 Baixar Gabarito", criar_gabarito(), "gabarito_sentinela.xlsx", use_container_width=True)
 
@@ -74,14 +68,14 @@ if cod_cliente:
     c_e, c_s = st.columns(2, gap="large")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_v107")
-        ge = st.file_uploader("Gerencial Entrada", type=['csv'], key="ge_v107")
-        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_v107")
+        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_v108")
+        ge = st.file_uploader("Gerencial Entrada", type=['csv'], key="ge_v108")
+        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_v108")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_v107")
-        gs = st.file_uploader("Gerencial Saída", type=['csv'], key="gs_v107")
-        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_v107")
+        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_v108")
+        gs = st.file_uploader("Gerencial Saída", type=['csv'], key="gs_v108")
+        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_v108")
 
     if st.button("🚀 GERAR RELATÓRIO"):
         with st.spinner("🧡 Sentinela processando motor maximalista total..."):
