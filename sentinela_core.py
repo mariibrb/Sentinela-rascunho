@@ -33,7 +33,6 @@ def extrair_dados_xml(files):
                     "CENQ_IPI": ""
                 }
                 if imp is not None:
-                    # ICMS
                     icms_tag = imp.find('.//ICMS')
                     if icms_tag is not None:
                         for n in icms_tag:
@@ -42,7 +41,6 @@ def extrair_dados_xml(files):
                             if n.find('vBC') is not None: linha["BC_ICMS"] = float(n.find('vBC').text)
                             if n.find('vICMS') is not None: linha["VLR_ICMS"] = float(n.find('vICMS').text)
                     
-                    # IPI (Extração do Valor e Código de Enquadramento)
                     ipi_tag = imp.find('.//IPI')
                     if ipi_tag is not None:
                         vIPI = ipi_tag.find('.//vIPI')
@@ -50,10 +48,10 @@ def extrair_dados_xml(files):
                         cenq = ipi_tag.find('.//cEnq')
                         if cenq is not None: linha["CENQ_IPI"] = cenq.text
 
-                    # PIS/COFINS
-                    p = imp.find('.//PIS'); c = imp.find('.//COFINS')
-                    if p is not None and p.find('.//vPIS') is not None: linha["VLR_PIS"] = float(p.find('.//vPIS').text)
-                    if c is not None and c.find('.//vCOFINS') is not None: linha["VLR_COFINS"] = float(c.find('.//vCOFINS').text)
+                    pis = imp.find('.//PIS//vPIS')
+                    if pis is not None: linha["VLR_PIS"] = float(pis.text)
+                    cofins = imp.find('.//COFINS//vCOFINS')
+                    if cofins is not None: linha["VLR_COFINS"] = float(cofins.text)
                 dados_lista.append(linha)
         except: continue
     return pd.DataFrame(dados_lista)
@@ -71,14 +69,15 @@ def gerar_excel_final(df_xe, df_xs, b_icms, b_pc, ae, as_f, ge, gs, b_ipi, cod_c
             try: pd.read_csv(gs, sep=None, engine='python').to_excel(writer, sheet_name='GERENCIAL_SAIDA', index=False)
             except: pass
 
+        # Bases seguindo o padrão da Mirão
         if b_icms is not None:
-            try: pd.read_excel(b_icms).to_excel(writer, sheet_name='BASE_REF_ICMS', index=False)
+            try: pd.read_excel(b_icms).to_excel(writer, sheet_name='MIRÃO_ICMS', index=False)
             except: pass
         if b_ipi is not None:
-            try: pd.read_excel(b_ipi).to_excel(writer, sheet_name='BASE_REF_IPI_TIPI', index=False)
+            try: pd.read_excel(b_ipi).to_excel(writer, sheet_name='MIRÃO_IPI', index=False)
             except: pass
         if b_pc is not None:
-            try: pd.read_excel(b_pc).to_excel(writer, sheet_name='BASE_REF_PIS_COFINS', index=False)
+            try: pd.read_excel(b_pc).to_excel(writer, sheet_name='MIRÃO_PIS_COFINS', index=False)
             except: pass
             
     return output.getvalue()
