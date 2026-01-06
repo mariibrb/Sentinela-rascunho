@@ -6,7 +6,7 @@ from sentinela_core import extrair_dados_xml, gerar_excel_final
 # 1. Configuração da Página
 st.set_page_config(page_title="Sentinela - Auditoria Fiscal", page_icon="🧡", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Estilo CSS Sentinela
+# 2. Estilo CSS Sentinela (Laranja Identidade)
 st.markdown("""
 <style>
     header {visibility: hidden !important;}
@@ -27,7 +27,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-def listar_empresas_no_repositorio():
+def listar_base_clientes():
     token = st.secrets.get("GITHUB_TOKEN")
     repo = st.secrets.get("GITHUB_REPO")
     if not token or not repo: return []
@@ -55,25 +55,25 @@ with st.sidebar:
         return output.getvalue()
     st.download_button("📥 Baixar Gabarito", criar_gabarito(), "gabarito_sentinela.xlsx", use_container_width=True)
 
-st.markdown("<div class='passo-container'><span class='passo-texto'>👣 PASSO 1: Selecione a empresa cadastrada</span></div>", unsafe_allow_html=True)
-cod_cliente = st.selectbox("Empresa:", [""] + listar_empresas_no_repositorio(), label_visibility="collapsed")
+st.markdown("<div class='passo-container'><span class='passo-texto'>👣 PASSO 1: Selecione a empresa</span></div>", unsafe_allow_html=True)
+cod_cliente = st.selectbox("Empresa:", [""] + listar_base_clientes(), label_visibility="collapsed")
 
 if cod_cliente:
     st.markdown("<div class='passo-container'><span class='passo-texto'>PASSO 2: Carregar Documentos</span></div>", unsafe_allow_html=True)
     c_e, c_s = st.columns(2, gap="large")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_vfinal")
-        ge = st.file_uploader("Gerencial Entrada", type=['csv', 'xlsx'], key="ge_vfinal")
-        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_vfinal")
+        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_v")
+        ge = st.file_uploader("Gerencial Entrada", type=['csv', 'xlsx'], key="ge_v")
+        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_v")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_vfinal")
-        gs = st.file_uploader("Gerencial Saída", type=['csv', 'xlsx'], key="gs_vfinal")
-        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_vfinal")
+        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_v")
+        gs = st.file_uploader("Gerencial Saída", type=['csv', 'xlsx'], key="gs_v")
+        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_v")
 
     if st.button("🚀 GERAR RELATÓRIO"):
-        with st.spinner("🧡 Sentinela processando motor..."):
+        with st.spinner("🧡 Sentinela processando motor completo..."):
             try:
                 df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
                 relat = gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente)
