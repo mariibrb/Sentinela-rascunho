@@ -50,7 +50,7 @@ with st.sidebar:
             pd.DataFrame(columns=["NCM", "CST (INTERNA)", "ALIQ (INTERNA)", "CST (ESTADUAL)"]).to_excel(writer, sheet_name='ICMS', index=False)
             pd.DataFrame(columns=["NCM", "CST Entrada", "CST Saída"]).to_excel(writer, sheet_name='PIS_COFINS', index=False)
         return output.getvalue()
-    st.download_button("📥 Baixar Gabarito (ICMS/PC)", criar_gabarito(), "gabarito_sentinela.xlsx", use_container_width=True)
+    st.download_button("📥 Baixar Gabarito", criar_gabarito(), "gabarito_sentinela.xlsx", use_container_width=True)
 
 st.markdown("<div class='passo-container'><span class='passo-texto'>👣 PASSO 1: Selecione a Empresa</span></div>", unsafe_allow_html=True)
 cod_cliente = st.selectbox("Empresa:", [""] + listar_empresas(), label_visibility="collapsed")
@@ -60,14 +60,14 @@ if cod_cliente:
     c_e, c_s = st.columns(2, gap="large")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_v116")
-        ge = st.file_uploader("Gerencial Entrada", type=['csv', 'xlsx'], key="ge_v116")
-        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_v116")
+        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_fix")
+        ge = st.file_uploader("Gerencial Entrada", type=['csv', 'xlsx'], key="ge_fix")
+        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_fix")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_v116")
-        gs = st.file_uploader("Gerencial Saída", type=['csv', 'xlsx'], key="gs_v116")
-        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_v116")
+        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_fix")
+        gs = st.file_uploader("Gerencial Saída", type=['csv', 'xlsx'], key="gs_fix")
+        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_fix")
 
     if st.button("🚀 GERAR RELATÓRIO"):
         with st.spinner("🧡 Sentinela auditando..."):
@@ -75,4 +75,6 @@ if cod_cliente:
                 df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
                 relat = gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente)
                 st.success("Auditoria Concluída! 🧡")
-                st.download_button("💾 BAIXAR AGORA", relat, f"Sentinela_{cod
+                # CORREÇÃO DA SINTAXE DO BOTÃO ABAIXO
+                st.download_button("💾 BAIXAR AGORA", relat, f"Sentinela_{cod_cliente}.xlsx", use_container_width=True)
+            except Exception as e: st.error(f"Erro Crítico: {e}")
