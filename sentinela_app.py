@@ -23,6 +23,7 @@ st.markdown("""
         background-color: #FFFFFF; padding: 10px 15px; border-radius: 10px; border-left: 5px solid #FF6F00;
         margin: 10px auto 15px auto; max-width: 600px; text-align: center;
     }
+    .passo-texto { color: #FF6F00; font-size: 1.1rem; font-weight: 700; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -62,14 +63,14 @@ if cod_cliente:
     c_e, c_s = st.columns(2, gap="large")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_v111")
-        ge = st.file_uploader("Gerencial Entrada", type=['csv'], key="ge_v111")
-        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_v111")
+        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_vfinal")
+        ge = st.file_uploader("Gerencial Entrada", type=['csv', 'xlsx'], key="ge_vfinal")
+        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_vfinal")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_v111")
-        gs = st.file_uploader("Gerencial Saída", type=['csv'], key="gs_v111")
-        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_v111")
+        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_vfinal")
+        gs = st.file_uploader("Gerencial Saída", type=['csv', 'xlsx'], key="gs_vfinal")
+        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_vfinal")
 
     if st.button("🚀 GERAR RELATÓRIO"):
         with st.spinner("🧡 Sentinela processando motor..."):
