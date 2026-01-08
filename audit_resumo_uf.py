@@ -2,47 +2,77 @@ import pandas as pd
 
 def gerar_resumo_uf(df, writer):
     """
-    Gera a aba DIFAL_ST_FECP filtrando pela coluna de situação da autenticidade.
+    Gera a aba DIFAL_ST_FECP separando Entradas e Saídas.
+    Utiliza o CFOP para identificar o sentido da operação.
     """
-    # Se o DataFrame estiver vazio, cancela
     if df.empty:
         return
 
-    # Criamos uma cópia para não estragar os dados das outras abas
     df_temp = df.copy()
 
-    # Ajuste da Situação: 
-    # O motor busca na coluna 'Situação Nota' que foi preenchida no Maestro 
-    # cruzando a chave com a sua planilha de Autenticidade.
-    
-    # Vamos tornar o filtro mais flexível: ele aceita "Autorizada", "Autorizado", "AUTORIZADA"
-    # e ignora "Cancelada", "Inutilizada" ou "Substituída".
-    
+    # 1. Filtro de Notas Autorizadas
     df_aut = df_temp[
         df_temp['Situação Nota'].astype(str).str.upper().str.contains('AUTORIZAD', na=False)
     ].copy()
-    
-    if not df_aut.empty:
-        # Agrupamento por Estado e IE de Substituto
-        res = df_aut.groupby(['UF_DEST', 'IE_SUBST']).agg({
+
+    if df_aut.empty:
+        pd.DataFrame([["Aviso:", "Nenhuma nota AUTORIZADA encontrada."]]).to_excel(writer, sheet_name='DIFAL_ST_FECP', index=False, header=False)
+        return
+
+    # 2. Identificação de Sentido (Entrada vs Saída) pelo CFOP
+    # CFOP iniciando em 1, 2 ou 3 = ENTRADA
+    # CFOP iniciando em 5, 6 ou 7 = SAÍDA
+    def identificar_sentido(cfop):
+        c = str(cfop).strip()[0]
+        if c in ['1', '2', '3']: return 'ENTRADA'
+        if c in ['5', '6', '7']: return 'SAÍDA'
+        return 'OUTROS'
+
+    df_aut['SENTIDO'] = df_aut['CFOP'].apply(identificar_sentido)
+
+    # 3. Função para agrupar e formatar
+    def agrupar_dados(dataframe):
+        return dataframe.groupby(['UF_DEST', 'IE_SUBST']).agg({
             'VAL-ICMS-ST': 'sum',
             'VAL-DIFAL': 'sum',
             'VAL-FCP': 'sum',
             'VAL-FCP-ST': 'sum'
         }).reset_index()
-        
-        # Renomeando para o seu padrão de conferência
-        res.columns = ['ESTADO (UF)', 'IE SUBSTITUTO', 'ST TOTAL', 'DIFAL TOTAL', 'FCP TOTAL', 'FCP-ST TOTAL']
-        
-        # Grava a aba solicitada
-        res.to_excel(writer, sheet_name='DIFAL_ST_FECP', index=False)
+
+    # Separa os dataframes
+    df_saidas = df_aut[df_aut['SENTIDO'] == 'SAÍDA']
+    df_entradas = df_aut[df_aut['SENTIDO'] == 'ENTRADA']
+
+    # 4. Gravação Física na Aba
+    start_row = 0
+    workbook = writer.book
+    worksheet = workbook.add_worksheet('DIFAL_ST_FECP')
+    writer.sheets['DIFAL_ST_FECP'] = worksheet
+
+    # Formatos
+    header_fmt = workbook.add_format({'bold': True, 'bg_color': '#FF6F00', 'font_color': 'white', 'border': 1})
+    title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'font_color': '#FF6F00'})
+
+    # --- TABELA DE SAÍDAS ---
+    worksheet.write(start_row, 0, "RESUMO DE SAÍDAS (VENDAS)", title_fmt)
+    start_row += 2
+    
+    if not df_saidas.empty:
+        res_s = agrupar_dados(df_saidas)
+        res_s.columns = ['ESTADO (UF)', 'IE SUBSTITUTO', 'ST TOTAL', 'DIFAL TOTAL', 'FCP TOTAL', 'FCP-ST TOTAL']
+        res_s.to_excel(writer, sheet_name='DIFAL_ST_FECP', startrow=start_row, index=False)
+        start_row += len(res_s) + 4
     else:
-        # Se ele cair aqui, significa que o texto na sua planilha de autenticidade 
-        # não contém a palavra "AUTORIZADA". 
-        # Vou listar os status encontrados para você ver o que o Python está lendo:
-        status_encontrados = df_temp['Situação Nota'].unique().tolist()
-        pd.DataFrame({
-            "Aviso": ["Nenhuma nota autorizada encontrada"],
-            "Status lidos na sua planilha": [str(status_encontrados)],
-            "Dica": ["Verifique se na planilha de Autenticidade o status está escrito como 'Autorizada'"]
-        }).to_excel(writer, sheet_name='DIFAL_ST_FECP', index=False)
+        worksheet.write(start_row, 0, "Nenhuma saída encontrada.")
+        start_row += 3
+
+    # --- TABELA DE ENTRADAS (DEVOLUÇÕES) ---
+    worksheet.write(start_row, 0, "RESUMO DE ENTRADAS (DEVOLUÇÕES/COMPRAS)", title_fmt)
+    start_row += 2
+
+    if not df_entradas.empty:
+        res_e = agrupar_dados(df_entradas)
+        res_e.columns = ['ESTADO (UF)', 'IE SUBSTITUTO', 'ST TOTAL', 'DIFAL TOTAL', 'FCP TOTAL', 'FCP-ST TOTAL']
+        res_e.to_excel(writer, sheet_name='DIFAL_ST_FECP', startrow=start_row, index=False)
+    else:
+        worksheet.write(start_row, 0, "Nenhuma entrada encontrada.")
