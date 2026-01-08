@@ -3,8 +3,10 @@ import os, io, pandas as pd
 import requests
 from sentinela_core import extrair_dados_xml, gerar_excel_final
 
+# 1. Configuração da Página - Mantendo padrão original
 st.set_page_config(page_title="Sentinela - Auditoria Fiscal", page_icon="🧡", layout="wide", initial_sidebar_state="expanded")
 
+# 2. Estilo CSS Sentinela - Restaurado conforme aprovado
 st.markdown("""
 <style>
     header {visibility: hidden !important;}
@@ -17,6 +19,11 @@ st.markdown("""
         background-color: #FF6F00 !important; color: white !important; border-radius: 25px !important;
         font-weight: bold !important; width: 300px !important; height: 50px !important; border: none !important;
     }
+    .passo-container {
+        background-color: #FFFFFF; padding: 10px 15px; border-radius: 10px; border-left: 5px solid #FF6F00;
+        margin: 10px auto 15px auto; max-width: 600px; text-align: center;
+    }
+    .passo-texto { color: #FF6F00; font-size: 1.1rem; font-weight: 700; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -38,25 +45,33 @@ with st.sidebar:
     if os.path.exists(".streamlit/Sentinela.png"):
         st.image(".streamlit/Sentinela.png", use_container_width=True)
     st.markdown("---")
+    def criar_gabarito():
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            pd.DataFrame(columns=["NCM", "CST (INTERNA)", "ALIQ (INTERNA)", "CST (ESTADUAL)"]).to_excel(writer, sheet_name='ICMS', index=False)
+            pd.DataFrame(columns=["NCM", "CST Entrada", "CST Saída"]).to_excel(writer, sheet_name='PIS_COFINS', index=False)
+        return output.getvalue()
+    st.download_button("📥 Baixar Gabarito", criar_gabarito(), "gabarito_sentinela.xlsx", use_container_width=True)
 
-st.markdown("### 🧡 SENTINELA - AUDITORIA 4.0")
-cod_cliente = st.selectbox("Selecione a Empresa:", [""] + listar_empresas())
+st.markdown("<div class='passo-container'><span class='passo-texto'>👣 PASSO 1: Selecione a Empresa</span></div>", unsafe_allow_html=True)
+cod_cliente = st.selectbox("Empresa:", [""] + listar_empresas(), label_visibility="collapsed")
 
 if cod_cliente:
+    st.markdown("<div class='passo-container'><span class='passo-texto'>PASSO 2: Carregar Arquivos ZIP e Planilhas</span></div>", unsafe_allow_html=True)
     c_e, c_s = st.columns(2, gap="large")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("ZIP Entradas", type=['zip'], key="xe_final")
-        ge = st.file_uploader("Gerencial Entrada", type=['csv', 'xlsx'], key="ge_final")
-        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_final")
+        xe = st.file_uploader("ZIP Entradas", type=['zip'], key="xe_final_zip")
+        ge = st.file_uploader("Gerencial Entrada", type=['csv', 'xlsx'], key="ge_final_plan")
+        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_final_plan")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("ZIP Saídas", type=['zip'], key="xs_final")
-        gs = st.file_uploader("Gerencial Saída", type=['csv', 'xlsx'], key="gs_final")
-        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_final")
+        xs = st.file_uploader("ZIP Saídas", type=['zip'], key="xs_final_zip")
+        gs = st.file_uploader("Gerencial Saída", type=['csv', 'xlsx'], key="gs_final_plan")
+        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_final_plan")
 
-    if st.button("🚀 GERAR AUDITORIA COMPLETA"):
-        with st.spinner("🧡 Sentinela executando auditoria maximalista..."):
+    if st.button("🚀 GERAR RELATÓRIO"):
+        with st.spinner("🧡 Sentinela processando com o motor completo..."):
             try:
                 df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
                 relat = gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente)
