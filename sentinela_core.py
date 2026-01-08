@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import xml.etree.ElementTree as ET
-import re, io, requests, streamlit as st
+import re, io, requests, streamlit as st, zipfile
 
 ALIQUOTAS_UF = {
     'AC': 19.0, 'AL': 19.0, 'AM': 20.0, 'AP': 18.0, 'BA': 20.5, 'CE': 20.0,
@@ -20,77 +20,80 @@ def safe_float(v):
         return round(float(txt), 4)
     except: return 0.0
 
-@st.cache_data(ttl=300) # Cache para arquivos do GitHub para não sobrecarregar a rede
 def buscar_github(nome_arquivo):
     token = st.secrets.get("GITHUB_TOKEN")
     repo = st.secrets.get("GITHUB_REPO")
     url = f"https://api.github.com/repos/{repo}/contents/Bases_Tributárias/{nome_arquivo}"
     headers = {"Authorization": f"token {token}"}
     try:
-        res = requests.get(url, headers=headers, timeout=20)
+        res = requests.get(url, headers=headers, timeout=25)
         if res.status_code == 200:
-            if isinstance(res.json(), list): return None
             f_res = requests.get(res.json()['download_url'], headers=headers)
             return io.BytesIO(f_res.content)
     except: pass
     return None
 
+def processar_conteudo_xml(content, dados_lista):
+    try:
+        xml_str = content.decode('utf-8', errors='replace')
+        xml_str = re.sub(r'\sxmlns(:\w+)?="[^"]+"', '', xml_str)
+        root = ET.fromstring(xml_str)
+        
+        inf = root.find('.//infNFe')
+        chave = inf.attrib.get('Id', '')[3:] if inf is not None else ""
+        emit = root.find('.//emit'); dest = root.find('.//dest')
+        
+        def tag_val(t, n):
+            v = n.find(f'.//{t}')
+            return v.text if v is not None and v.text else ""
+
+        def rec_val(n, ts):
+            if n is None: return ""
+            for e in n.iter():
+                if e.tag.split('}')[-1] in ts: return e.text
+            return ""
+
+        for det in root.findall('.//det'):
+            prod = det.find('prod'); imp = det.find('imposto')
+            icms = imp.find('.//ICMS') if imp is not None else None
+            
+            linha = {
+                "CHAVE_ACESSO": str(chave).strip(), "NUM_NF": tag_val('nNF', root),
+                "CNPJ_EMIT": tag_val('CNPJ', emit), "CNPJ_DEST": tag_val('CNPJ', dest),
+                "UF_EMIT": tag_val('UF', emit), "UF_DEST": tag_val('UF', dest),
+                "indIEDest": tag_val('indIEDest', dest), "CFOP": tag_val('CFOP', prod),
+                "NCM": re.sub(r'\D', '', tag_val('NCM', prod)).zfill(8),
+                "VPROD": safe_float(tag_val('vProd', prod)), "ORIGEM": rec_val(icms, ['orig']),
+                "CST-ICMS": rec_val(icms, ['CST', 'CSOSN']).zfill(2),
+                "BC-ICMS": safe_float(rec_val(imp, ['vBC'])), "ALQ-ICMS": safe_float(rec_val(imp, ['pICMS'])),
+                "VLR-ICMS": safe_float(rec_val(imp, ['vICMS'])),
+                "VAL-PIS": safe_float(rec_val(imp.find('.//PIS'), ['vPIS'])),
+                "VAL-COF": safe_float(rec_val(imp.find('.//COFINS'), ['vCOFINS'])),
+                "VAL-IPI": safe_float(rec_val(imp.find('.//IPI'), ['vIPI'])),
+                "VAL-DIFAL": safe_float(rec_val(imp, ['vICMSUFDest'])), 
+                "VAL-FCP-DEST": safe_float(rec_val(imp, ['vFCPUFDest'])),
+                "VAL-ICMS-ST": safe_float(rec_val(imp, ['vICMSST'])),
+                "VAL-FCP-ST": safe_float(rec_val(imp, ['vFCPST'])),
+                "VAL-IBS": safe_float(rec_val(imp, ['vIBS'])), "ALQ-IBS": safe_float(rec_val(imp, ['pIBS'])),
+                "VAL-CBS": safe_float(rec_val(imp, ['vCBS'])), "ALQ-CBS": safe_float(rec_val(imp, ['pCBS']))
+            }
+            dados_lista.append(linha)
+    except: pass
+
 def extrair_dados_xml(files):
     dados_lista = []
     if not files: return pd.DataFrame()
     
-    # Otimização de parser para evitar consumo excessivo de RAM
     for f in files:
-        try:
-            f.seek(0)
-            context = ET.iterparse(f, events=('end',))
-            root = None
+        if f.name.endswith('.zip'):
+            with zipfile.ZipFile(f) as z:
+                for filename in z.namelist():
+                    if filename.endswith('.xml'):
+                        with z.open(filename) as xml_file:
+                            processar_conteudo_xml(xml_file.read(), dados_lista)
+        elif f.name.endswith('.xml'):
+            processar_conteudo_xml(f.read(), dados_lista)
             
-            # Captura básica de emit/dest/chave antes de iterar itens
-            xml_str = f.read().decode('utf-8', errors='replace')
-            xml_str = re.sub(r'\sxmlns(:\w+)?="[^"]+"', '', xml_str)
-            root = ET.fromstring(xml_str)
-            
-            def buscar_tag(tag, node):
-                alvo = node.find(f'.//{tag}')
-                return alvo.text if alvo is not None and alvo.text is not None else ""
-            
-            def buscar_recursivo(node, tags_alvo):
-                if node is None: return ""
-                for elem in node.iter():
-                    tag_limpa = elem.tag.split('}')[-1]
-                    if tag_limpa in tags_alvo: return elem.text
-                return ""
-            
-            inf = root.find('.//infNFe'); emit = root.find('.//emit'); dest = root.find('.//dest')
-            chave = inf.attrib.get('Id', '')[3:] if inf is not None else ""
-            
-            for det in root.findall('.//det'):
-                prod = det.find('prod'); imp = det.find('imposto')
-                icms_node = imp.find('.//ICMS') if imp is not None else None
-                linha = {
-                    "CHAVE_ACESSO": str(chave).strip(), "NUM_NF": buscar_tag('nNF', root),
-                    "CNPJ_EMIT": buscar_tag('CNPJ', emit), "CNPJ_DEST": buscar_tag('CNPJ', dest),
-                    "UF_EMIT": buscar_tag('UF', emit), "UF_DEST": buscar_tag('UF', dest),
-                    "indIEDest": buscar_tag('indIEDest', dest), "CFOP": buscar_tag('CFOP', prod),
-                    "NCM": re.sub(r'\D', '', buscar_tag('NCM', prod)).zfill(8),
-                    "VPROD": safe_float(buscar_tag('vProd', prod)), "ORIGEM": buscar_recursivo(icms_node, ['orig']),
-                    "CST-ICMS": buscar_recursivo(icms_node, ['CST', 'CSOSN']).zfill(2),
-                    "BC-ICMS": safe_float(buscar_recursivo(imp, ['vBC'])), "ALQ-ICMS": safe_float(buscar_recursivo(imp, ['pICMS'])),
-                    "VLR-ICMS": safe_float(buscar_recursivo(imp, ['vICMS'])),
-                    "CST-PIS": buscar_recursivo(imp.find('.//PIS'), ['CST']), "VAL-PIS": safe_float(buscar_recursivo(imp.find('.//PIS'), ['vPIS'])),
-                    "CST-COF": buscar_recursivo(imp.find('.//COFINS'), ['CST']), "VAL-COF": safe_float(buscar_recursivo(imp.find('.//COFINS'), ['vCOFINS'])),
-                    "CST-IPI": buscar_recursivo(imp.find('.//IPI'), ['CST']), "ALQ-IPI": safe_float(buscar_recursivo(imp.find('.//IPI'), ['pIPI'])),
-                    "VAL-IPI": safe_float(buscar_recursivo(imp.find('.//IPI'), ['vIPI'])),
-                    "VAL-DIFAL": safe_float(buscar_recursivo(imp, ['vICMSUFDest'])), "VAL-FCP-DEST": safe_float(buscar_recursivo(imp, ['vFCPUFDest'])),
-                    "VAL-ICMS-ST": safe_float(buscar_recursivo(imp, ['vICMSST'])), "BC-ICMS-ST": safe_float(buscar_recursivo(imp, ['vBCST'])),
-                    "VAL-FCP-ST": safe_float(buscar_recursivo(imp, ['vFCPST'])), "VAL-FCP-RET": safe_float(buscar_recursivo(imp, ['vFCPSTRet'])),
-                    "VAL-IBS": safe_float(buscar_recursivo(imp, ['vIBS'])), "ALQ-IBS": safe_float(buscar_recursivo(imp, ['pIBS'])),
-                    "VAL-CBS": safe_float(buscar_recursivo(imp, ['vCBS'])), "ALQ-CBS": safe_float(buscar_recursivo(imp, ['pCBS']))
-                }
-                dados_lista.append(linha)
-            f.seek(0) # Reset para fechar
-        except: continue
     return pd.DataFrame(dados_lista)
 
 def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
@@ -109,7 +112,7 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        pd.DataFrame([["RELATÓRIO CONSOLIDADO - SENTINELA"]]).to_excel(writer, sheet_name='RESUMO', index=False, header=False)
+        pd.DataFrame([["SENTINELA FISCAL - MÓDULO ALTA PERFORMANCE"]]).to_excel(writer, sheet_name='RESUMO', index=False, header=False)
         
         for f_obj, s_name in [(ge, 'GERENCIAL_ENTRADA'), (gs, 'GERENCIAL_SAIDA')]:
             if f_obj:
@@ -131,7 +134,7 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
         if not df_xs.empty:
             df_xs['Situação Nota'] = df_xs['CHAVE_ACESSO'].map(st_map).fillna('⚠️ N/Encontrada')
             
-            # --- 1. ICMS AUDIT (CONGELADO) ---
+            # Auditoria ICMS
             df_i = df_xs.copy()
             def audit_icms(r):
                 info = base_icms[base_icms['NCM_KEY'] == r['NCM']] if not base_icms.empty else pd.DataFrame()
@@ -147,23 +150,13 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
             cols_i = ['Situação Nota', 'VAL-IBS', 'ALQ-IBS', 'VAL-CBS', 'ALQ-CBS'] + [c for c in df_i.columns if c not in ['Situação Nota', 'VAL-IBS', 'ALQ-IBS', 'VAL-CBS', 'ALQ-CBS']]
             df_i[cols_i].to_excel(writer, sheet_name='ICMS_AUDIT', index=False)
 
-            # --- 2. IPI AUDIT (CONGELADO) ---
-            df_ip = df_xs.copy()
-            def audit_ipi(r):
-                match = tipi_df[tipi_df['NCM_KEY'] == r['NCM']] if not tipi_df.empty else pd.DataFrame()
-                val_p = safe_float(match['ALÍQUOTA (%)'].iloc[0]) if not match.empty else 0.0
-                return "✅ Alq OK" if abs(r['ALQ-IPI'] - val_p) < 0.01 else f"❌ XML {r['ALQ-IPI']}% vs TIPI {val_p}%"
-            df_ip['Diagnóstico IPI'] = df_ip.apply(audit_ipi, axis=1)
-            cols_ip = ['Situação Nota', 'VAL-IBS', 'ALQ-IBS', 'VAL-CBS', 'ALQ-CBS', 'Diagnóstico IPI'] + [c for c in df_ip.columns if c not in ['Situação Nota', 'VAL-IBS', 'ALQ-IBS', 'VAL-CBS', 'ALQ-CBS', 'Diagnóstico IPI']]
-            df_ip[cols_ip].to_excel(writer, sheet_name='IPI_AUDIT', index=False)
-
-            # --- 3. DIFAL_ST_FECP (MANTIDA) ---
+            # DIFAL_ST_FECP (MANTIDA)
             df_st = df_xs.copy()
-            cols_st = ['Situação Nota', 'NUM_NF', 'CHAVE_ACESSO', 'CFOP', 'NCM', 'VPROD', 'VAL-DIFAL', 'VAL-FCP-DEST', 'VAL-ICMS-ST', 'BC-ICMS-ST', 'VAL-FCP-ST', 'VAL-FCP-RET']
+            cols_st = ['Situação Nota', 'NUM_NF', 'CHAVE_ACESSO', 'CFOP', 'NCM', 'VPROD', 'VAL-DIFAL', 'VAL-FCP-DEST', 'VAL-ICMS-ST', 'VAL-FCP-ST']
             df_st[cols_st].to_excel(writer, sheet_name='DIFAL_ST_FECP', index=False)
 
-            # --- 4. PIS/COFINS (CONGELADO) ---
+            # PIS/COFINS (CONGELADO)
             df_pc = df_xs.copy()
-            df_pc[['Situação Nota', 'VAL-IBS', 'ALQ-IBS', 'VAL-CBS', 'ALQ-CBS', 'CHAVE_ACESSO', 'NCM', 'CST-PIS', 'VAL-PIS', 'CST-COF', 'VAL-COF']].to_excel(writer, sheet_name='PIS_COFINS_AUDIT', index=False)
+            df_pc[['Situação Nota', 'VAL-IBS', 'ALQ-IBS', 'VAL-CBS', 'ALQ-CBS', 'CHAVE_ACESSO', 'NCM', 'CST-PIS']].to_excel(writer, sheet_name='PIS_COFINS_AUDIT', index=False)
 
     return output.getvalue()
