@@ -93,28 +93,18 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        # --- RESUMO MAXIMALISTA (MANUAL COMPLETO) ---
+        # --- ABA RESUMO (MANUAL COMPLETO) ---
         man = [
             ["MANUAL DE DIAGNÓSTICOS SENTINELA"], [""],
-            ["[ICMS_AUDIT]"],
-            ["✅ Alq OK", "Alíquota XML bate com regra Gabarito ou Tabela UF."],
-            ["❌ XML % vs Gabarito %", "Divergência contra o cadastro personalizado do cliente."],
-            ["❌ XML % vs Interna UF %", "Divergência contra a alíquota padrão do estado de destino."],
-            ["❌ XML % vs Trava 4% %", "Mercadoria Importada (Origem 1,2,3,8) interestadual exige 4%."],
-            [""], ["[IPI_AUDIT]"],
-            ["✅ Alq OK", "Alíquota XML bate com o arquivo TIPI.csv."],
-            ["❌ XML % vs TIPI %", "Divergência contra a Tabela de Incidência do IPI."],
-            [""], ["[PIS_COFINS_AUDIT]"],
-            ["✅ CST OK", "CST de saída corresponde ao gabarito."],
-            ["❌ XML CST vs Base CST", "Divergência no Código de Situação Tributária federal."],
-            ["❌ NCM ausente na Base", "Produto não encontrado no cadastro de PIS/COFINS."],
-            [""], ["[DIFAL_AUDIT]"],
-            ["✅ DIFAL OK", "Imposto destacado para CPF ou Isento."],
-            ["❌ Erro: Não-Contribuinte sem DIFAL", "Operação interestadual sem destaque obrigatório para CPF/PF."],
-            ["Contribuinte: Verificar", "Destinatário com IE. Diferencial deve ser pago na entrada."]
+            ["ICMS_AUDIT: ✅ Alq OK | ❌ XML % vs Esperado (Gabarito, Interna ou Trava 4%)"],
+            ["IPI_AUDIT: Validação contra TIPI.csv"],
+            ["PIS_COFINS_AUDIT: Validação de CST vs Base Cliente"],
+            ["DIFAL_AUDIT: Verifica obrigatoriedade para CPF/PF"],
+            ["DIFAL_ST_FECP: Resumo consolidado (Ignora notas Canceladas)"]
         ]
         pd.DataFrame(man).to_excel(writer, sheet_name='RESUMO', index=False, header=False)
         
+        # --- ABAS GERENCIAIS ---
         for f_obj, s_name in [(ge, 'GERENCIAL_ENTRADA'), (gs, 'GERENCIAL_SAIDA')]:
             if f_obj:
                 try:
@@ -133,10 +123,7 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
 
         if not df_xs.empty:
             df_xs['Situação Nota'] = df_xs['CHAVE_ACESSO'].map(st_map).fillna('⚠️ N/Encontrada')
-            
-            # --- PADRÃO DE COLUNAS: TAGS -> STATUS -> ANÁLISES ---
-            cols_xml = list(df_xs.columns)
-            if 'Situação Nota' in cols_xml: cols_xml.remove('Situação Nota')
+            cols_xml = list(df_xs.columns); cols_xml.remove('Situação Nota')
 
             # 1. ICMS_AUDIT
             df_i = df_xs.copy()
@@ -144,8 +131,7 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
                 info = base_icms[base_icms['NCM_KEY'] == r['NCM']] if not base_icms.empty else pd.DataFrame()
                 val_g = safe_float(info['ALIQ (INTERNA)'].iloc[0]) if not info.empty else 0.0
                 if val_g > 0: alq_e, tipo = val_g, "Gabarito"
-                elif r['UF_EMIT'] != r['UF_DEST']:
-                    alq_e, tipo = (4.0, "Trava 4%") if str(r['ORIGEM']) in ['1', '2', '3', '8'] else (12.0, "Interestadual")
+                elif r['UF_EMIT'] != r['UF_DEST']: alq_e, tipo = (4.0, "Trava 4%") if str(r['ORIGEM']) in ['1', '2', '3', '8'] else (12.0, "Interestadual")
                 else: alq_e, tipo = (ALIQUOTAS_UF.get(r['UF_EMIT'], 18.0), "Interna UF")
                 diag = "✅ Alq OK" if abs(r['ALQ-ICMS'] - alq_e) < 0.01 else f"❌ XML {r['ALQ-ICMS']}% vs {tipo} {alq_e}%"
                 comp = max(0, (alq_e - r['ALQ-ICMS']) * r['BC-ICMS'] / 100)
@@ -183,9 +169,11 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
             df_dif['Análise DIFAL'] = df_dif.apply(audit_difal, axis=1)
             df_dif[cols_xml + ['Situação Nota', 'Análise DIFAL']].to_excel(writer, sheet_name='DIFAL_AUDIT', index=False)
 
-            # 5. DIFAL_ST_FECP (RESUMO POR ESTADO)
-            df_res_uf = df_xs.groupby(['UF_DEST', 'IE_SUBST']).agg({'VAL-ICMS-ST': 'sum', 'VAL-DIFAL': 'sum', 'VAL-FCP': 'sum', 'VAL-FCP-ST': 'sum'}).reset_index()
-            df_res_uf.columns = ['ESTADO', 'IE SUBST.', 'ST', 'DIFAL', 'FCP', 'FCP-ST']
-            df_res_uf.to_excel(writer, sheet_name='DIFAL_ST_FECP', index=False)
+            # 5. DIFAL_ST_FECP (RESUMO CONSOLIDADO - FILTRO NOTAS CANCELADAS)
+            df_autorizadas = df_xs[df_xs['Situação Nota'].str.upper().str.contains('AUTORIZADA', na=False)]
+            if not df_autorizadas.empty:
+                df_res_uf = df_autorizadas.groupby(['UF_DEST', 'IE_SUBST']).agg({'VAL-ICMS-ST': 'sum', 'VAL-DIFAL': 'sum', 'VAL-FCP': 'sum', 'VAL-FCP-ST': 'sum'}).reset_index()
+                df_res_uf.columns = ['ESTADO', 'IE SUBST.', 'ST', 'DIFAL', 'FCP', 'FCP-ST']
+                df_res_uf.to_excel(writer, sheet_name='DIFAL_ST_FECP', index=False)
 
     return output.getvalue()
