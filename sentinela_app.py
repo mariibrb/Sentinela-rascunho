@@ -34,7 +34,7 @@ def listar_empresas():
     url = f"https://api.github.com/repos/{repo}/contents/Bases_Tributárias"
     headers = {"Authorization": f"token {token}"}
     try:
-        res = requests.get(url, headers=headers, timeout=10)
+        res = requests.get(url, headers=headers, timeout=15) # Aumento de timeout para evitar AxiosError
         if res.status_code == 200:
             return sorted(list(set([f['name'].split('-')[0] for f in res.json() if f['name'].endswith('.xlsx') and 'TIPI' not in f['name'].upper()])))
     except: pass
@@ -60,17 +60,17 @@ if cod_cliente:
     c_e, c_s = st.columns(2, gap="large")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_vibs")
-        ge = st.file_uploader("Gerencial Entrada", type=['csv', 'xlsx'], key="ge_vibs")
-        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_vibs")
+        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_v_net")
+        ge = st.file_uploader("Gerencial Entrada", type=['csv', 'xlsx'], key="ge_v_net")
+        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_v_net")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_vibs")
-        gs = st.file_uploader("Gerencial Saída", type=['csv', 'xlsx'], key="gs_vibs")
-        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_vibs")
+        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_v_net")
+        gs = st.file_uploader("Gerencial Saída", type=['csv', 'xlsx'], key="gs_v_net")
+        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_v_net")
 
     if st.button("🚀 GERAR RELATÓRIO"):
-        with st.spinner("🧡 Sentinela auditando com suporte IBS/CBS..."):
+        with st.spinner("🧡 Sentinela processando motor blindado contra erros de rede..."):
             try:
                 df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
                 relat = gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente)
