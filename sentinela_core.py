@@ -20,13 +20,14 @@ def safe_float(v):
         return round(float(txt), 4)
     except: return 0.0
 
+@st.cache_data(ttl=300) # Cache para arquivos do GitHub para não sobrecarregar a rede
 def buscar_github(nome_arquivo):
     token = st.secrets.get("GITHUB_TOKEN")
     repo = st.secrets.get("GITHUB_REPO")
     url = f"https://api.github.com/repos/{repo}/contents/Bases_Tributárias/{nome_arquivo}"
     headers = {"Authorization": f"token {token}"}
     try:
-        res = requests.get(url, headers=headers, timeout=20) # Blindagem contra queda de rede
+        res = requests.get(url, headers=headers, timeout=20)
         if res.status_code == 200:
             if isinstance(res.json(), list): return None
             f_res = requests.get(res.json()['download_url'], headers=headers)
@@ -37,13 +38,18 @@ def buscar_github(nome_arquivo):
 def extrair_dados_xml(files):
     dados_lista = []
     if not files: return pd.DataFrame()
+    
+    # Otimização de parser para evitar consumo excessivo de RAM
     for f in files:
         try:
             f.seek(0)
-            # Limpeza de namespaces para evitar erros de parser
-            xml_content = f.read().decode('utf-8', errors='replace')
-            xml_data = re.sub(r'\sxmlns(:\w+)?="[^"]+"', '', xml_content)
-            root = ET.fromstring(xml_data)
+            context = ET.iterparse(f, events=('end',))
+            root = None
+            
+            # Captura básica de emit/dest/chave antes de iterar itens
+            xml_str = f.read().decode('utf-8', errors='replace')
+            xml_str = re.sub(r'\sxmlns(:\w+)?="[^"]+"', '', xml_str)
+            root = ET.fromstring(xml_str)
             
             def buscar_tag(tag, node):
                 alvo = node.find(f'.//{tag}')
@@ -83,16 +89,19 @@ def extrair_dados_xml(files):
                     "VAL-CBS": safe_float(buscar_recursivo(imp, ['vCBS'])), "ALQ-CBS": safe_float(buscar_recursivo(imp, ['pCBS']))
                 }
                 dados_lista.append(linha)
+            f.seek(0) # Reset para fechar
         except: continue
     return pd.DataFrame(dados_lista)
 
 def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
     f_cliente = buscar_github(f"{cod_cliente}-Bases_Tributárias.xlsx")
     f_tipi = buscar_github("TIPI.csv")
+    
     try:
         base_icms = pd.read_excel(f_cliente, sheet_name='ICMS'); base_icms['NCM_KEY'] = base_icms['NCM'].astype(str).str.zfill(8)
         base_pc = pd.read_excel(f_cliente, sheet_name='PIS_COFINS'); base_pc['NCM_KEY'] = base_pc['NCM'].astype(str).str.zfill(8)
     except: base_icms, base_pc = pd.DataFrame(), pd.DataFrame()
+    
     try: 
         tipi_df = pd.read_csv(f_tipi)
         tipi_df['NCM_KEY'] = tipi_df['NCM'].astype(str).str.replace('.', '').str.strip().str.zfill(8)
@@ -102,7 +111,6 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         pd.DataFrame([["RELATÓRIO CONSOLIDADO - SENTINELA"]]).to_excel(writer, sheet_name='RESUMO', index=False, header=False)
         
-        # 👣 GERENCIAIS COMO ABAS
         for f_obj, s_name in [(ge, 'GERENCIAL_ENTRADA'), (gs, 'GERENCIAL_SAIDA')]:
             if f_obj:
                 try:
@@ -111,7 +119,6 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
                     df_g.to_excel(writer, sheet_name=s_name, index=False)
                 except: pass
 
-        # Map de Status Autenticidade
         st_map = {}
         if as_f:
             try:
@@ -150,7 +157,7 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
             cols_ip = ['Situação Nota', 'VAL-IBS', 'ALQ-IBS', 'VAL-CBS', 'ALQ-CBS', 'Diagnóstico IPI'] + [c for c in df_ip.columns if c not in ['Situação Nota', 'VAL-IBS', 'ALQ-IBS', 'VAL-CBS', 'ALQ-CBS', 'Diagnóstico IPI']]
             df_ip[cols_ip].to_excel(writer, sheet_name='IPI_AUDIT', index=False)
 
-            # --- 3. DIFAL_ST_FECP (LEITURA) ---
+            # --- 3. DIFAL_ST_FECP (MANTIDA) ---
             df_st = df_xs.copy()
             cols_st = ['Situação Nota', 'NUM_NF', 'CHAVE_ACESSO', 'CFOP', 'NCM', 'VPROD', 'VAL-DIFAL', 'VAL-FCP-DEST', 'VAL-ICMS-ST', 'BC-ICMS-ST', 'VAL-FCP-ST', 'VAL-FCP-RET']
             df_st[cols_st].to_excel(writer, sheet_name='DIFAL_ST_FECP', index=False)
