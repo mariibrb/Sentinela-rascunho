@@ -6,7 +6,7 @@ UFS_BRASIL = [
     'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO'
 ]
 
-# Estados que possuem IE Substituto (Apenas os destacados em laranja na sua imagem)
+# Estados que possuem IE Substituto (Destaque Laranja e Abatimento)
 UFS_COM_IE = ['AP', 'BA', 'ES', 'MG', 'MT', 'PA', 'PB', 'PE', 'PR', 'RJ', 'RN', 'RS', 'SC']
 
 def gerar_resumo_uf(df, writer):
@@ -15,7 +15,7 @@ def gerar_resumo_uf(df, writer):
 
     df_temp = df.copy()
 
-    # 1. Filtro Rigoroso: Notas Autorizadas e Válidas (Exclui Cancelamento de NF-e homologado)
+    # 1. Filtro Rigoroso: Notas Autorizadas e Válidas (Exclui Cancelamentos)
     df_validas = df_temp[
         (df_temp['Situação Nota'].astype(str).str.upper().str.contains('AUTORIZAD', na=False)) &
         (~df_temp['Situação Nota'].astype(str).str.upper().str.contains('CANCEL', na=False))
@@ -62,18 +62,18 @@ def gerar_resumo_uf(df, writer):
     worksheet = workbook.add_worksheet('DIFAL_ST_FECP')
     writer.sheets['DIFAL_ST_FECP'] = worksheet
     
-    # REMOVER LINHAS DE GRADE
-    worksheet.hide_gridlines(2)
+    worksheet.hide_gridlines(2) # Sem linhas de grade
 
     # Formatos
     title_fmt = workbook.add_format({'bold': True, 'font_color': '#FF6F00', 'font_size': 11})
     orange_fill = workbook.add_format({'bg_color': '#FFCC99', 'border': 1}) 
+    orange_num_fill = workbook.add_format({'bg_color': '#FFCC99', 'border': 1, 'num_format': '#,##0.00'}) 
     header_fmt = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#E0E0E0'})
     total_fmt = workbook.add_format({'bold': True, 'bg_color': '#F2F2F2', 'border': 1, 'num_format': '#,##0.00'})
     num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1})
     border_fmt = workbook.add_format({'border': 1})
 
-    # Tabelas Lado a Lado (Espaçamento Reduzido: Colunas 0, 7 e 14)
+    # Tabelas Lado a Lado (Espaçamento Reduzido)
     tables = [
         (res_s, 0, "1. SAÍDAS (DÉBITO)"), 
         (res_e, 7, "2. ENTRADAS (CRÉDITO)"), 
@@ -88,19 +88,18 @@ def gerar_resumo_uf(df, writer):
         for row_num, row_data in enumerate(df_t.values):
             uf_atual = str(row_data[0]).strip()
             for col_num, value in enumerate(row_data):
-                # Aplicar laranja apenas nas colunas de Estado e IE dos estados da lista
-                if uf_atual in UFS_COM_IE and col_num in [0, 1]:
-                    current_fmt = orange_fill
+                # Se for estado com IE, pinta a célula de laranja (texto ou número)
+                if uf_atual in UFS_COM_IE:
+                    current_fmt = orange_num_fill if isinstance(value, (int, float)) else orange_fill
                 else:
                     current_fmt = num_fmt if isinstance(value, (int, float)) else border_fmt
                 
                 worksheet.write(row_num + 3, start_col + col_num, value, current_fmt)
 
-        # Totais no Rodapé (Linha 30)
+        # Totais no Rodapé
         worksheet.write(30, start_col, "TOTAL GERAL", total_fmt)
         worksheet.write(30, start_col + 1, "", total_fmt)
         for i in range(2, 6):
             c_idx = start_col + i
-            # Lógica para converter índice em letra de coluna (A, B, C...)
             c_let = chr(65 + c_idx) if c_idx < 26 else f"A{chr(65 + c_idx - 26)}"
             worksheet.write(30, c_idx, f'=SUM({c_let}4:{c_let}30)', total_fmt)
