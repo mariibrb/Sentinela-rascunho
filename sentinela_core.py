@@ -93,14 +93,14 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        # --- ABA RESUMO (MANUAL COMPLETO) ---
+        # --- ABA RESUMO COM MANUAL COMPLETO ---
         man = [
             ["MANUAL DE DIAGNÓSTICOS SENTINELA"], [""],
-            ["ICMS_AUDIT: ✅ Alq OK | ❌ XML % vs Esperado (Gabarito, Interna ou Trava 4%)"],
-            ["IPI_AUDIT: Validação contra TIPI.csv"],
-            ["PIS_COFINS_AUDIT: Validação de CST vs Base Cliente"],
-            ["DIFAL_AUDIT: Verifica obrigatoriedade para CPF/PF"],
-            ["DIFAL_ST_FECP: Resumo consolidado (Ignora notas Canceladas)"]
+            ["ABA ICMS_AUDIT: Confronto XML vs Gabarito/UF. Inclui Trava 4% para importados."],
+            ["ABA IPI_AUDIT: Validação NCM vs TIPI.csv federal."],
+            ["ABA PIS_COFINS_AUDIT: Validação de CST conforme cadastro cliente."],
+            ["ABA DIFAL_AUDIT: Análise de obrigatoriedade (CPF/Isento)."],
+            ["ABA DIFAL_ST_FECP: Resumo consolidado para guia (Ignora notas canceladas)."]
         ]
         pd.DataFrame(man).to_excel(writer, sheet_name='RESUMO', index=False, header=False)
         
@@ -169,10 +169,12 @@ def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente):
             df_dif['Análise DIFAL'] = df_dif.apply(audit_difal, axis=1)
             df_dif[cols_xml + ['Situação Nota', 'Análise DIFAL']].to_excel(writer, sheet_name='DIFAL_AUDIT', index=False)
 
-            # 5. DIFAL_ST_FECP (RESUMO CONSOLIDADO - FILTRO NOTAS CANCELADAS)
+            # --- 5. DIFAL_ST_FECP (RESTABELECIDA COM FILTRO DE AUTORIZADAS) ---
             df_autorizadas = df_xs[df_xs['Situação Nota'].str.upper().str.contains('AUTORIZADA', na=False)]
             if not df_autorizadas.empty:
-                df_res_uf = df_autorizadas.groupby(['UF_DEST', 'IE_SUBST']).agg({'VAL-ICMS-ST': 'sum', 'VAL-DIFAL': 'sum', 'VAL-FCP': 'sum', 'VAL-FCP-ST': 'sum'}).reset_index()
+                df_res_uf = df_autorizadas.groupby(['UF_DEST', 'IE_SUBST']).agg({
+                    'VAL-ICMS-ST': 'sum', 'VAL-DIFAL': 'sum', 'VAL-FCP': 'sum', 'VAL-FCP-ST': 'sum'
+                }).reset_index()
                 df_res_uf.columns = ['ESTADO', 'IE SUBST.', 'ST', 'DIFAL', 'FCP', 'FCP-ST']
                 df_res_uf.to_excel(writer, sheet_name='DIFAL_ST_FECP', index=False)
 
