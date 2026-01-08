@@ -60,21 +60,20 @@ if cod_cliente:
     c_e, c_s = st.columns(2, gap="large")
     with c_e:
         st.subheader("📥 ENTRADAS")
-        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_fix")
-        ge = st.file_uploader("Gerencial Entrada", type=['csv', 'xlsx'], key="ge_fix")
-        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_fix")
+        xe = st.file_uploader("XMLs Entrada", type='xml', accept_multiple_files=True, key="xe_vibs")
+        ge = st.file_uploader("Gerencial Entrada", type=['csv', 'xlsx'], key="ge_vibs")
+        ae = st.file_uploader("Autenticidade Entrada", type=['xlsx', 'csv'], key="ae_vibs")
     with c_s:
         st.subheader("📤 SAÍDAS")
-        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_fix")
-        gs = st.file_uploader("Gerencial Saída", type=['csv', 'xlsx'], key="gs_fix")
-        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_fix")
+        xs = st.file_uploader("XMLs Saída", type='xml', accept_multiple_files=True, key="xs_vibs")
+        gs = st.file_uploader("Gerencial Saída", type=['csv', 'xlsx'], key="gs_vibs")
+        as_f = st.file_uploader("Autenticidade Saída", type=['xlsx', 'csv'], key="as_vibs")
 
     if st.button("🚀 GERAR RELATÓRIO"):
-        with st.spinner("🧡 Sentinela auditando..."):
+        with st.spinner("🧡 Sentinela auditando com suporte IBS/CBS..."):
             try:
                 df_xe = extrair_dados_xml(xe); df_xs = extrair_dados_xml(xs)
                 relat = gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod_cliente)
                 st.success("Auditoria Concluída! 🧡")
-                # CORREÇÃO DA SINTAXE DO BOTÃO ABAIXO
                 st.download_button("💾 BAIXAR AGORA", relat, f"Sentinela_{cod_cliente}.xlsx", use_container_width=True)
             except Exception as e: st.error(f"Erro Crítico: {e}")
